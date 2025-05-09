@@ -23,7 +23,7 @@ const questions = {
 
 // ✅ Webhook verification (required by Meta)
 app.get('/webhook', (req, res) => {
-  const VERIFY_TOKEN = "shunyamudra_token"; // This must match the token set in Meta portal
+  const VERIFY_TOKEN = process.env.WHATSAPP_TOKEN; // This must match the token set in Meta portal
 
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
