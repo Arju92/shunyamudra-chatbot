@@ -1,12 +1,14 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const axios = require('axios');
-require('dotenv').config();
+require('dotenv').config(); // Load .env variables
 
 const app = express();
 app.use(bodyParser.json());
 
 const PORT = process.env.PORT || 3000;
+const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
+const VERIFY_TOKEN = process.env.VERIFY_TOKEN || 'shunyamudra_token'; // Optional fallback
 
 // ✅ Predefined questions and answers
 const questions = {
@@ -23,25 +25,24 @@ const questions = {
 
 // ✅ Webhook verification (required by Meta)
 app.get('/webhook', (req, res) => {
-  const VERIFY_TOKEN = "EAAN05eE0iv0BO6Q64pMCgZC1G6ZCSvUVVbb0jYxjn6IH0zzTvLwycaUe0TzjrZC5h9ZCGojpsJC7dsA3Cok8jQ9IwPaLXkzDwj7rvbRwO69iyZCamFJyeEs5FaMyHGXXPoimhi32ZAIwYcLVtPKMV2gUnzoMZARhaKGfonqPoePaCCcZBahZBX2P6nNuwttZBUzTBjdO5mfmA4aja6WtzRooVZCsBQt"; // This must match the token set in Meta portal
-
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
 
   if (mode && token) {
     if (mode === 'subscribe' && token === VERIFY_TOKEN) {
-      console.log("Webhook verified successfully");
+      console.log("✅ Webhook verified");
       res.status(200).send(challenge);
     } else {
-      res.sendStatus(403); // Token mismatch
+      console.warn("❌ Webhook verification failed: invalid token");
+      res.sendStatus(403);
     }
   } else {
-    res.sendStatus(400); // Missing required query params
+    res.sendStatus(400); // Missing required params
   }
 });
 
-// ✅ Message handling logic
+// ✅ Handle incoming WhatsApp messages
 app.post('/webhook', async (req, res) => {
   const body = req.body;
 
@@ -67,13 +68,13 @@ app.post('/webhook', async (req, res) => {
           },
           {
             headers: {
-              'Authorization': `Bearer ${process.env.WHATSAPP_TOKEN}`,
+              'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
               'Content-Type': 'application/json'
             }
           }
         );
       } catch (error) {
-        console.error("Error sending message:", error.response?.data || error.message);
+        console.error("❌ Error sending message:", error.response?.data || error.message);
       }
     }
     res.sendStatus(200);
@@ -82,11 +83,11 @@ app.post('/webhook', async (req, res) => {
   }
 });
 
-// ✅ Basic route to confirm server is running
+// ✅ Health check endpoint
 app.get('/', (req, res) => {
   res.send('Shunyamudra Chatbot is Live');
 });
 
 app.listen(PORT, () => {
-  console.log(`Bot is listening on port ${PORT}`);
+  console.log(`🚀 Bot is running on port ${PORT}`);
 });
