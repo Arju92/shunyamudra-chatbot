@@ -12,18 +12,17 @@ const VERIFY_TOKEN = process.env.VERIFY_TOKEN || 'shunyamudra_token';
 
 const menuOptions = {
   class_timings: "Our classes are on Monday to Saturday and the batches are as follows:\n\n" +
-  "🧘 Morning ->\n" +
-  "6:45 AM - 7:45 AM\n" +
-  "7:45 AM - 8:45 AM\n" +
-  "8:45 AM - 9:45 AM\n" +
-  "10:30 AM - 11:30 AM\n\n" +
-  "🌇 Evening ->\n" +
-  "6:45 PM - 7:45 PM\n" +
-  "7:45 PM - 8:45 PM\n"+
-  "For personal class or workshop, feel free to talk to our representative",
+    "🧘 Morning ->\n" +
+    "6:45 AM - 7:45 AM\n" +
+    "7:45 AM - 8:45 AM\n" +
+    "8:45 AM - 9:45 AM\n" +
+    "10:30 AM - 11:30 AM\n\n" +
+    "🌇 Evening ->\n" +
+    "6:45 PM - 7:45 PM\n" +
+    "7:45 PM - 8:45 PM\n" +
+    "For personal class or workshop, feel free to talk to our representative",
   fee_structure: 'Our monthly fee is ₹2500. Yoga mats and water are included.',
-  join_info: 'To join, please fill our registration form on www.shunyamudra.com or visit our studio.',
-  talk_person: 'Please wait while I connect you to a staff member...'
+  join_info: 'To join, please fill our registration form on www.shunyamudra.com or visit our studio.'
 };
 
 // ✅ Webhook verification (Meta requirement)
@@ -41,7 +40,7 @@ app.get('/webhook', (req, res) => {
       res.sendStatus(403);
     }
   } else {
-    res.sendStatus(400); // Missing required params
+    res.sendStatus(400);
   }
 });
 
@@ -58,21 +57,26 @@ app.post('/webhook', async (req, res) => {
       const phone_number_id = changes.value.metadata.phone_number_id;
       const from = message.from;
 
-      // Handle list reply
+      // ✅ Handle list reply
       if (message?.interactive?.list_reply?.id) {
         const payload = message.interactive.list_reply.id;
-        const replyText = menuOptions[payload] || "Sorry, I didn't understand your selection.";
-        await sendMessage(phone_number_id, from, replyText);
+
+        if (payload === "talk_person") {
+          await sendRedirectButton(phone_number_id, from);
+        } else {
+          const replyText = menuOptions[payload] || "Sorry, I didn't understand your selection.";
+          await sendMessage(phone_number_id, from, replyText);
+        }
       }
 
-      // Handle regular message (e.g. "hi" or "hello")
-      else if (message?.text?.body && 
-        (message.text.body.toLowerCase().includes('hi') || 
+      // ✅ Handle greetings
+      else if (message?.text?.body &&
+        (message.text.body.toLowerCase().includes('hi') ||
          message.text.body.toLowerCase().includes('hello'))) {
         await sendMenu(phone_number_id, from);
-    }
+      }
 
-      // Handle fallback
+      // ✅ Handle fallback
       else if (message?.text?.body) {
         const fallback = `Hi! Please type "hi" to see the available options.`;
         await sendMessage(phone_number_id, from, fallback);
@@ -161,6 +165,45 @@ async function sendMenu(phoneNumberId, to) {
     );
   } catch (error) {
     console.error("❌ Error sending menu:", error.response?.data || error.message);
+  }
+}
+
+// ✅ Send a redirect button to WhatsApp chat of instructor
+async function sendRedirectButton(phoneNumberId, to) {
+  const whatsappLink = process.env.WHATSAPP_REDIRECT_LINK;
+
+  try {
+    await axios.post(
+      `https://graph.facebook.com/v18.0/${phoneNumberId}/messages`,
+      {
+        messaging_product: 'whatsapp',
+        to,
+        type: 'interactive',
+        interactive: {
+          type: 'button',
+          body: {
+            text: "Please click below to talk directly to our Head Instructor:"
+          },
+          action: {
+            buttons: [
+              {
+                type: "url",
+                url: whatsappLink,
+                title: "Talk to Representative"
+              }
+            ]
+          }
+        }
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+  } catch (error) {
+    console.error("❌ Error sending redirect button:", error.response?.data || error.message);
   }
 }
 
