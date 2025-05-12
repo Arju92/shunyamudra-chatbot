@@ -61,7 +61,7 @@ app.post('/webhook', async (req, res) => {
       if (message?.interactive?.list_reply?.id) {
         const payload = message.interactive.list_reply.id;
 
-        if (payload === "talk_person") {
+        if (payload === "talk_person_v2") {
           await sendRedirectButton(phone_number_id, from);
         } else {
           const replyText = menuOptions[payload] || "Sorry, I didn't understand your selection.";
@@ -147,7 +147,7 @@ async function sendMenu(phoneNumberId, to) {
                     title: "How can I Join?"
                   },
                   {
-                    id: "talk_person",
+                    id: "talk_person_v2",
                     title: "Talk to a Person"
                   }
                 ]
