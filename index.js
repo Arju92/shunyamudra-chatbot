@@ -11,8 +11,17 @@ const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN || 'shunyamudra_token';
 
 const menuOptions = {
-  class_timings: 'Our class timings are 6 AM to 8 PM from Monday to Saturday.',
-  fee_structure: 'Our monthly fee is ₹2000. Yoga mats and water are included.',
+  class_timings_v2: "Our classes are on Monday to Saturday and the batches are as follows:\n\n" +
+  "🧘 Morning ->\n" +
+  "6:45 AM - 7:45 AM\n" +
+  "7:45 AM - 8:45 AM\n" +
+  "8:45 AM - 9:45 AM\n" +
+  "10:30 AM - 11:30 AM\n\n" +
+  "🌇 Evening ->\n" +
+  "6:45 PM - 7:45 PM\n" +
+  "7:45 PM - 8:45 PM\n"+
+  "For personal class or workshop, feel free to talk to our representative",
+  fee_structure: 'Our monthly fee is ₹2500. Yoga mats and water are included.',
   join_info: 'To join, please fill our registration form on www.shunyamudra.com or visit our studio.',
   talk_person: 'Please wait while I connect you to a staff member...'
 };
@@ -122,16 +131,16 @@ async function sendMenu(phoneNumberId, to) {
                 title: "Yoga Studio FAQs",
                 rows: [
                   {
-                    id: "class_timings",
-                    title: "Class Timings"
+                    id: "class_timings_v2",
+                    title: "What are your Class Timings?"
                   },
                   {
                     id: "fee_structure",
-                    title: "Fee Structure"
+                    title: "Could you share the Fee Structure?"
                   },
                   {
                     id: "join_info",
-                    title: "How to Join?"
+                    title: "How can I Join?"
                   },
                   {
                     id: "talk_person",
