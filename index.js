@@ -57,9 +57,11 @@ app.post('/webhook', async (req, res) => {
       }
 
       // Handle regular message (e.g. "hi" or "hello")
-      else if (message?.text?.body?.toLowerCase() === 'hi' || message?.text?.body?.toLowerCase() === 'hello') {
+      else if (message?.text?.body && 
+        (message.text.body.toLowerCase().includes('hi') || 
+         message.text.body.toLowerCase().includes('hello'))) {
         await sendMenu(phone_number_id, from);
-      }
+    }
 
       // Handle fallback
       else if (message?.text?.body) {
