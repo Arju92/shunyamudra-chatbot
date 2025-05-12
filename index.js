@@ -36,7 +36,7 @@ app.get('/webhook', (req, res) => {
   }
 });
 
-// ✅ Handle incoming messages and button replies
+// ✅ Handle incoming messages and list selections
 app.post('/webhook', async (req, res) => {
   const body = req.body;
 
@@ -49,20 +49,19 @@ app.post('/webhook', async (req, res) => {
       const phone_number_id = changes.value.metadata.phone_number_id;
       const from = message.from;
 
-      // Handle button reply
-      if (message?.button?.payload) {
-        const payload = message.button.payload;
-        const replyText = menuOptions[payload] || "Sorry, I didn't understand your choice.";
-
+      // Handle list reply
+      if (message?.interactive?.list_reply?.id) {
+        const payload = message.interactive.list_reply.id;
+        const replyText = menuOptions[payload] || "Sorry, I didn't understand your selection.";
         await sendMessage(phone_number_id, from, replyText);
       }
 
-      // Handle regular message (e.g. "hi")
+      // Handle regular message (e.g. "hi" or "hello")
       else if (message?.text?.body?.toLowerCase() === 'hi' || message?.text?.body?.toLowerCase() === 'hello') {
         await sendMenu(phone_number_id, from);
       }
 
-      // If no match
+      // Handle fallback
       else if (message?.text?.body) {
         const fallback = `Hi! Please type "hi" to see the available options.`;
         await sendMessage(phone_number_id, from, fallback);
@@ -75,7 +74,7 @@ app.post('/webhook', async (req, res) => {
   }
 });
 
-// ✅ Send a text message
+// ✅ Send a regular text message
 async function sendMessage(phoneNumberId, to, text) {
   try {
     await axios.post(
@@ -97,7 +96,7 @@ async function sendMessage(phoneNumberId, to, text) {
   }
 }
 
-// ✅ Send an interactive menu with 4 buttons
+// ✅ Send a list-style interactive menu
 async function sendMenu(phoneNumberId, to) {
   try {
     await axios.post(
@@ -107,39 +106,36 @@ async function sendMenu(phoneNumberId, to) {
         to,
         type: 'interactive',
         interactive: {
-          type: 'button',
+          type: 'list',
           body: {
             text: "Welcome to Shunyamudra Yoga Studio! How can we help you today?"
           },
+          footer: {
+            text: "Select an option from the list below"
+          },
           action: {
-            buttons: [
+            button: "Show Options",
+            sections: [
               {
-                type: 'reply',
-                reply: {
-                  id: 'class_timings',
-                  title: 'Class Timings'
-                }
-              },
-              {
-                type: 'reply',
-                reply: {
-                  id: 'fee_structure',
-                  title: 'Fee Structure'
-                }
-              },
-              {
-                type: 'reply',
-                reply: {
-                  id: 'join_info',
-                  title: 'How to Join?'
-                }
-              },
-              {
-                type: 'reply',
-                reply: {
-                  id: 'talk_person',
-                  title: 'Talk to a Person'
-                }
+                title: "Yoga Studio FAQs",
+                rows: [
+                  {
+                    id: "class_timings",
+                    title: "Class Timings"
+                  },
+                  {
+                    id: "fee_structure",
+                    title: "Fee Structure"
+                  },
+                  {
+                    id: "join_info",
+                    title: "How to Join?"
+                  },
+                  {
+                    id: "talk_person",
+                    title: "Talk to a Person"
+                  }
+                ]
               }
             ]
           }
@@ -157,7 +153,7 @@ async function sendMenu(phoneNumberId, to) {
   }
 }
 
-// ✅ Health check
+// ✅ Health check route
 app.get('/', (req, res) => {
   res.send('Shunyamudra Chatbot is Live');
 });
