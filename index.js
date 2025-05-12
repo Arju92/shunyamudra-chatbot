@@ -170,42 +170,32 @@ async function sendMenu(phoneNumberId, to) {
 
 // ✅ Send a redirect button to WhatsApp chat of instructor
 async function sendRedirectButton(phoneNumberId, to) {
-  const whatsappLink = process.env.WHATSAPP_REDIRECT_LINK;
-
-  try {
-    await axios.post(
-      `https://graph.facebook.com/v18.0/${phoneNumberId}/messages`,
-      {
-        messaging_product: 'whatsapp',
-        to,
-        type: 'interactive',
-        interactive: {
-          type: 'button',
-          body: {
-            text: "Please click below to talk directly to our Head Instructor:"
-          },
-          action: {
-            buttons: [
-              {
-                type: "url",
-                url: whatsappLink,
-                title: "Talk to Representative"
-              }
-            ]
+    const whatsappLink = process.env.WHATSAPP_REDIRECT_LINK;
+  
+    const messageText = `Please click the link below to chat with our Head Instructor:\n\n${whatsappLink}`;
+  
+    try {
+      await axios.post(
+        `https://graph.facebook.com/v18.0/${phoneNumberId}/messages`,
+        {
+          messaging_product: 'whatsapp',
+          to,
+          text: {
+            body: messageText
+          }
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
+            'Content-Type': 'application/json'
           }
         }
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-  } catch (error) {
-    console.error("❌ Error sending redirect button:", error.response?.data || error.message);
+      );
+    } catch (error) {
+      console.error("❌ Error sending redirect message:", error.response?.data || error.message);
+    }
   }
-}
+  
 
 // ✅ Health check route
 app.get('/', (req, res) => {
