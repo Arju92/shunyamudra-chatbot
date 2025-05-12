@@ -11,7 +11,7 @@ const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN || 'shunyamudra_token';
 
 const menuOptions = {
-  class_timings_v2: "Our classes are on Monday to Saturday and the batches are as follows:\n\n" +
+  class_timings: "Our classes are on Monday to Saturday and the batches are as follows:\n\n" +
   "🧘 Morning ->\n" +
   "6:45 AM - 7:45 AM\n" +
   "7:45 AM - 8:45 AM\n" +
@@ -131,12 +131,12 @@ async function sendMenu(phoneNumberId, to) {
                 title: "Yoga Studio FAQs",
                 rows: [
                   {
-                    id: "class_timings_v2",
-                    title: "What are your Class Timings?"
+                    id: "class_timings",
+                    title: "Class Timings?"
                   },
                   {
                     id: "fee_structure",
-                    title: "Could you share the Fee Structure?"
+                    title: "Fee Structure?"
                   },
                   {
                     id: "join_info",
