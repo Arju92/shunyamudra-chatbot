@@ -86,74 +86,77 @@ function resetTimeout(from) {
 
 // ==================== MAIN MESSAGE ROUTING ====================
 async function handleMessage(phoneNumberId, from, msgBody) {
-  resetTimeout(from);
-
-  const session = sessions.get(from) || { step: 'welcome' };
-
-  // Store session meta
-  session.phoneNumberId = phoneNumberId;
-  session.from = from;
-
-  switch (session.step) {
-    case 'welcome':
-      await sendWelcome(phoneNumberId, from);
-      session.step = 'main_menu';
-      break;
-
-    case 'main_menu':
-      if (msgBody.includes("class timings")) {
-        await sendClassTypeOptions(phoneNumberId, from);
-        session.step = 'select_class_type';
-      } else if (msgBody.includes("fee")) {
-        await sendMessage(phoneNumberId, from, "💰 Our monthly fee is ₹2500 with a one-time ₹500 admission charge. Please bring your own yoga mat and water.");
-        await sendYesNoButtons(phoneNumberId, from);
-        session.step = 'post_answer';
-      } else if (msgBody.includes("join")) {
-        await sendMessage(phoneNumberId, from, "📝 You can register by clicking this link: https://example.com/register");
-        await sendYesNoButtons(phoneNumberId, from);
-        session.step = 'post_answer';
-      } else if (msgBody.includes("talk")) {
-        await sendMessage(phoneNumberId, from, "👤 Our representative will get back to you shortly. Thank you for your patience.");
-        await sendRedirectButton(phoneNumberId, from);
-        session.step = 'end';
-      } else {
-        await sendWelcome(phoneNumberId, from);
-      }
-      break;
-
-    case 'select_class_type':
-      if (msgBody.includes("regular")) {
-        await sendClassTimings(phoneNumberId, from, 'regular');
-        session.step = 'post_answer';
-      } else if (msgBody.includes("aerial")) {
-        await sendClassTimings(phoneNumberId, from, 'aerial');
-        session.step = 'post_answer';
-      } else if (msgBody.includes("meditation")) {
-        await sendMessage(phoneNumberId, from, "🧘 We are going to start the meditation batch soon. We will let you know the details as soon as possible.");
-        await sendYesNoButtons(phoneNumberId, from);
-        session.step = 'post_answer';
-      }
-      break;
-
-    case 'post_answer':
-      if (msgBody === 'yes') {
+    resetTimeout(from);
+  
+    const session = sessions.get(from) || { step: 'welcome' };
+    const normalizedMsg = msgBody.toLowerCase().replace(/[?]/g, '').trim();
+  
+    switch (session.step) {
+      case 'welcome':
         await sendWelcome(phoneNumberId, from);
         session.step = 'main_menu';
-      } else if (msgBody === 'no') {
-        await sendMessage(phoneNumberId, from, "🙏 Thank you for contacting Shunyamudra Yoga Studio. Have a great day!");
-        sessions.delete(from);
-        return;
-      }
-      break;
-
-    default:
-      await sendWelcome(phoneNumberId, from);
-      session.step = 'main_menu';
-      break;
+        break;
+  
+      case 'main_menu':
+        if (normalizedMsg.includes("class timings")) {
+          await sendClassTypeOptions(phoneNumberId, from);
+          session.step = 'select_class_type';
+        } else if (normalizedMsg.includes("fee structure") || normalizedMsg.includes("fee")) {
+          await sendMessage(phoneNumberId, from, "Our monthly fee is ₹2500 with a one-time ₹500 admission charge. Please bring your own yoga mat and water.");
+          await sendYesNoButtons(phoneNumberId, from);
+          session.step = 'post_answer';
+        } else if (normalizedMsg.includes("how can i join") || normalizedMsg.includes("join")) {
+          await sendMessage(phoneNumberId, from, "You can register by clicking this link: https://example.com/register");
+          await sendYesNoButtons(phoneNumberId, from);
+          session.step = 'post_answer';
+        } else if (normalizedMsg.includes("talk to a person") || normalizedMsg.includes("talk")) {
+          await sendMessage(phoneNumberId, from, "Our representative will get back to you shortly. Thank you for your patience.");
+          await sendRedirectButton(phoneNumberId, from);
+          session.step = 'end';
+        } else {
+          await sendWelcome(phoneNumberId, from); // fallback
+        }
+        break;
+  
+      case 'select_class_type':
+        if (normalizedMsg.includes("regular")) {
+          await sendClassTimings(phoneNumberId, from, 'regular');
+          session.step = 'post_answer';
+        } else if (normalizedMsg.includes("aerial")) {
+          await sendClassTimings(phoneNumberId, from, 'aerial');
+          session.step = 'post_answer';
+        } else if (normalizedMsg.includes("meditation")) {
+          await sendMessage(phoneNumberId, from, "We are going to start the meditation batch soon. We will let you know the details as soon as possible.");
+          await sendYesNoButtons(phoneNumberId, from);
+          session.step = 'post_answer';
+        } else {
+          await sendMessage(phoneNumberId, from, "Please select a valid class type.");
+          await sendClassTypeOptions(phoneNumberId, from);
+        }
+        break;
+  
+      case 'post_answer':
+        if (normalizedMsg === 'yes') {
+          await sendWelcome(phoneNumberId, from);
+          session.step = 'main_menu';
+        } else if (normalizedMsg === 'no') {
+          await sendMessage(phoneNumberId, from, "Thank you for contacting Shunyamudra Yoga Studio. Have a great day!");
+          sessions.delete(from);
+        } else {
+          await sendMessage(phoneNumberId, from, "Would you like more assistance?");
+          await sendYesNoButtons(phoneNumberId, from);
+        }
+        break;
+  
+      default:
+        await sendWelcome(phoneNumberId, from);
+        session.step = 'main_menu';
+        break;
+    }
+  
+    sessions.set(from, session);
   }
-
-  sessions.set(from, session);
-}
+  
 
 // ==================== MESSAGE SENDERS ====================
 async function sendMessage(phoneNumberId, to, text) {
