@@ -10,12 +10,12 @@ app.use(express.json());
 const PORT = process.env.PORT || 3000;
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN || 'shunyamudra_token';
-const WHATSAPP_REDIRECT_LINK = process.env.WHATSAPP_REDIRECT_LINK
+const WHATSAPP_REDIRECT_LINK = process.env.WHATSAPP_REDIRECT_LINK;
 const SESSION_TIMEOUT = 5 * 60 * 1000; // 5 minutes
 
 const sessions = new Map();
 
-// Webhook verification
+// ==================== WEBHOOK VERIFICATION ====================
 app.get('/webhook', (req, res) => {
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
@@ -29,7 +29,7 @@ app.get('/webhook', (req, res) => {
   }
 });
 
-// Message handler
+// ==================== WEBHOOK MESSAGE HANDLER ====================
 app.post('/webhook', async (req, res) => {
   try {
     const body = req.body;
@@ -39,18 +39,17 @@ app.post('/webhook', async (req, res) => {
       const changes = entry?.changes?.[0];
       const message = changes?.value?.messages?.[0];
 
-      if (message && message.type === 'text') {
+      if (message) {
         const phoneNumberId = changes.value.metadata.phone_number_id;
         const from = message.from;
-        const msgBody = message.text.body.trim().toLowerCase();
+        const msgBody = 
+          message.type === 'text' ? message.text.body.trim().toLowerCase() :
+          message.type === 'interactive' ? (message.button?.text || message.list_reply?.title) :
+          null;
 
-        await handleMessage(phoneNumberId, from, msgBody);
-      } else if (message && message.type === 'interactive') {
-        const phoneNumberId = changes.value.metadata.phone_number_id;
-        const from = message.from;
-        const msgBody = message.button?.text || message.list_reply?.title;
-
-        await handleMessage(phoneNumberId, from, msgBody);
+        if (msgBody) {
+          await handleMessage(phoneNumberId, from, msgBody);
+        }
       }
 
       res.sendStatus(200);
@@ -63,10 +62,37 @@ app.post('/webhook', async (req, res) => {
   }
 });
 
+// ==================== SESSION HANDLING ====================
+function resetTimeout(from) {
+  let session = sessions.get(from) || {};
+
+  if (session.timeout) {
+    clearTimeout(session.timeout);
+  }
+
+  session.timeout = setTimeout(async () => {
+    if (session.phoneNumberId && session.from) {
+      await sendMessage(
+        session.phoneNumberId,
+        session.from,
+        "⏳ Your session has timed out. Please type *Hi* or *Hello* to start again."
+      );
+    }
+    sessions.delete(from);
+  }, SESSION_TIMEOUT);
+
+  sessions.set(from, session);
+}
+
+// ==================== MAIN MESSAGE ROUTING ====================
 async function handleMessage(phoneNumberId, from, msgBody) {
   resetTimeout(from);
 
   const session = sessions.get(from) || { step: 'welcome' };
+
+  // Store session meta
+  session.phoneNumberId = phoneNumberId;
+  session.from = from;
 
   switch (session.step) {
     case 'welcome':
@@ -79,15 +105,15 @@ async function handleMessage(phoneNumberId, from, msgBody) {
         await sendClassTypeOptions(phoneNumberId, from);
         session.step = 'select_class_type';
       } else if (msgBody.includes("fee")) {
-        await sendMessage(phoneNumberId, from, "Our monthly fee is ₹2500 with a one-time ₹500 admission charge. Please bring your own yoga mat and water.");
+        await sendMessage(phoneNumberId, from, "💰 Our monthly fee is ₹2500 with a one-time ₹500 admission charge. Please bring your own yoga mat and water.");
         await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
       } else if (msgBody.includes("join")) {
-        await sendMessage(phoneNumberId, from, "You can register by clicking this link: https://example.com/register");
+        await sendMessage(phoneNumberId, from, "📝 You can register by clicking this link: https://example.com/register");
         await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
       } else if (msgBody.includes("talk")) {
-        await sendMessage(phoneNumberId, from, "Our representative will get back to you shortly. Thank you for your patience.");
+        await sendMessage(phoneNumberId, from, "👤 Our representative will get back to you shortly. Thank you for your patience.");
         await sendRedirectButton(phoneNumberId, from);
         session.step = 'end';
       } else {
@@ -103,7 +129,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
         await sendClassTimings(phoneNumberId, from, 'aerial');
         session.step = 'post_answer';
       } else if (msgBody.includes("meditation")) {
-        await sendMessage(phoneNumberId, from, "We are going to start the meditation batch soon. We will let you know the details as soon as possible.");
+        await sendMessage(phoneNumberId, from, "🧘 We are going to start the meditation batch soon. We will let you know the details as soon as possible.");
         await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
       }
@@ -114,8 +140,9 @@ async function handleMessage(phoneNumberId, from, msgBody) {
         await sendWelcome(phoneNumberId, from);
         session.step = 'main_menu';
       } else if (msgBody === 'no') {
-        await sendMessage(phoneNumberId, from, "Thank you for contacting Shunyamudra Yoga Studio. Have a great day!");
+        await sendMessage(phoneNumberId, from, "🙏 Thank you for contacting Shunyamudra Yoga Studio. Have a great day!");
         sessions.delete(from);
+        return;
       }
       break;
 
@@ -128,52 +155,22 @@ async function handleMessage(phoneNumberId, from, msgBody) {
   sessions.set(from, session);
 }
 
-function resetTimeout(from) {
-  const session = sessions.get(from);
-  if (session?.timeout) clearTimeout(session.timeout);
-  session.timeout = setTimeout(() => sessions.delete(from), SESSION_TIMEOUT);
-  sessions.set(from, session || {});
-}
-
-async function sendWelcome(phoneNumberId, to) {
-  await sendListMessage(phoneNumberId, to, "Welcome to Shunyamudra Yoga Studio! How can we help you today?", "Select an option", [
-    { id: "class_timings", title: "Class Timings?" },
-    { id: "fee_structure", title: "Fee Structure?" },
-    { id: "how_to_join", title: "How can I Join?" },
-    { id: "talk_to_person", title: "Talk to a Person" }
-  ]);
-}
-
-async function sendClassTypeOptions(phoneNumberId, to) {
-  await sendListMessage(phoneNumberId, to, "We have different types of yoga:\n\n- Hatha\n- Ashtanga\n- Vinyasa\n- Iyengar (props)\n- Aerial Yoga\n- Meditation", "Which one are you looking for?", [
-    { id: "regular", title: "Regular Adult Batch" },
-    { id: "aerial", title: "Aerial Yoga Batch" },
-    { id: "meditation", title: "Meditation Batch" }
-  ]);
-}
-
-async function sendClassTimings(phoneNumberId, to, type) {
-  let timings = [];
-
-  if (type === 'regular') {
-    timings = [
-      { id: "slot1", title: "6:45 AM - 7:45 AM" },
-      { id: "slot2", title: "7:45 AM - 8:45 AM" },
-      { id: "slot3", title: "8:45 AM - 9:45 AM" },
-      { id: "slot4", title: "10:30 AM - 11:30 AM" },
-      { id: "slot5", title: "6:45 PM - 7:45 PM" },
-      { id: "slot6", title: "7:45 PM - 8:45 PM" }
-    ];
-    await sendListMessage(phoneNumberId, to, "Our classes are on Monday to Friday.\n\nPlease choose your preferred batch:", "Batch Timings", timings);
-  } else {
-    timings = [
-      { id: "slot1", title: "6:45 AM - 7:45 AM" },
-      { id: "slot2", title: "7:45 AM - 8:45 AM" }
-    ];
-    await sendListMessage(phoneNumberId, to, "Aerial Yoga classes are on Saturday and Sunday.\n\nPlease choose your preferred batch:", "Batch Timings", timings);
+// ==================== MESSAGE SENDERS ====================
+async function sendMessage(phoneNumberId, to, text) {
+  try {
+    await axios.post(`https://graph.facebook.com/v18.0/${phoneNumberId}/messages`, {
+      messaging_product: 'whatsapp',
+      to,
+      text: { body: text }
+    }, {
+      headers: {
+        'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
+        'Content-Type': 'application/json'
+      }
+    });
+  } catch (err) {
+    console.error("sendMessage failed:", err.response?.data || err.message);
   }
-
-  await sendYesNoButtons(phoneNumberId, to);
 }
 
 async function sendYesNoButtons(phoneNumberId, to) {
@@ -221,19 +218,6 @@ async function sendRedirectButton(phoneNumberId, to) {
   });
 }
 
-async function sendMessage(phoneNumberId, to, text) {
-  await axios.post(`https://graph.facebook.com/v18.0/${phoneNumberId}/messages`, {
-    messaging_product: 'whatsapp',
-    to,
-    text: { body: text }
-  }, {
-    headers: {
-      'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
-      'Content-Type': 'application/json'
-    }
-  });
-}
-
 async function sendListMessage(phoneNumberId, to, bodyText, title, options) {
   await axios.post(`https://graph.facebook.com/v18.0/${phoneNumberId}/messages`, {
     messaging_product: 'whatsapp',
@@ -261,6 +245,49 @@ async function sendListMessage(phoneNumberId, to, bodyText, title, options) {
   });
 }
 
+// ==================== PREDEFINED MENUS ====================
+async function sendWelcome(phoneNumberId, to) {
+  await sendListMessage(phoneNumberId, to, "🙏 Welcome to *Shunyamudra Yoga Studio*! How can we help you today?", "Main Menu", [
+    { id: "class_timings", title: "Class Timings?" },
+    { id: "fee_structure", title: "Fee Structure?" },
+    { id: "how_to_join", title: "How can I Join?" },
+    { id: "talk_to_person", title: "Talk to a Person" }
+  ]);
+}
+
+async function sendClassTypeOptions(phoneNumberId, to) {
+  await sendListMessage(phoneNumberId, to, "🧘 We have different types of yoga:\n\n- Hatha\n- Ashtanga\n- Vinyasa\n- Iyengar (props)\n- Aerial Yoga\n- Meditation", "Which one are you looking for?", [
+    { id: "regular", title: "Regular Adult Batch" },
+    { id: "aerial", title: "Aerial Yoga Batch" },
+    { id: "meditation", title: "Meditation Batch" }
+  ]);
+}
+
+async function sendClassTimings(phoneNumberId, to, type) {
+  let timings;
+
+  if (type === 'regular') {
+    timings = [
+      { id: "slot1", title: "6:45 AM - 7:45 AM" },
+      { id: "slot2", title: "7:45 AM - 8:45 AM" },
+      { id: "slot3", title: "8:45 AM - 9:45 AM" },
+      { id: "slot4", title: "10:30 AM - 11:30 AM" },
+      { id: "slot5", title: "6:45 PM - 7:45 PM" },
+      { id: "slot6", title: "7:45 PM - 8:45 PM" }
+    ];
+    await sendListMessage(phoneNumberId, to, "🕒 Our classes are from *Monday to Friday*.\nPlease choose your preferred batch:", "Regular Batch Timings", timings);
+  } else {
+    timings = [
+      { id: "slot1", title: "6:45 AM - 7:45 AM" },
+      { id: "slot2", title: "7:45 AM - 8:45 AM" }
+    ];
+    await sendListMessage(phoneNumberId, to, "🕒 *Aerial Yoga* classes are on *Saturday and Sunday*.\nPlease choose your preferred batch:", "Aerial Batch Timings", timings);
+  }
+
+  await sendYesNoButtons(phoneNumberId, to);
+}
+
+// ==================== START SERVER ====================
 app.listen(PORT, () => {
   console.log(`🚀 Server is running on port ${PORT}`);
 });
