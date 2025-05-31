@@ -104,11 +104,9 @@ async function handleMessage(phoneNumberId, from, msgBody) {
     case 'select_class_type':
       if (msg.includes("mumbai")) {
         await sendClassTimings(phoneNumberId, from, 'regular_mum');
-        await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
       } else if (msg.includes("bangalore")) {
         await sendClassTimings(phoneNumberId, from, 'regular_blr');
-        await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
       } else if (msg.includes("online")) {
         await sendMessage(phoneNumberId, from, "🧘‍♀️ Online batch time: \n9:30 AM - 10:30 AM");
