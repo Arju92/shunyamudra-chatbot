@@ -11,6 +11,7 @@ const PORT = process.env.PORT || 3000;
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN || 'shunyamudra_token';
 const WHATSAPP_REDIRECT_LINK = process.env.WHATSAPP_REDIRECT_LINK;
+const TEAM_WHATSAPP_NUMBER = process.env.WHATSAPP_NUMBER;
 const SESSION_TIMEOUT = 5 * 60 * 1000; // 5 minutes
 
 const sessions = new Map();
@@ -35,11 +36,10 @@ app.post('/webhook', async (req, res) => {
     const from = message?.from;
 
     const msgBody = message?.type === 'text'
-    ? message.text.body.trim().toLowerCase()
-    : message?.type === 'interactive'
-      ? message.interactive?.button_reply?.title || message.interactive?.list_reply?.title
-      : null;
-
+      ? message.text.body.trim()
+      : message?.type === 'interactive'
+        ? message.interactive?.button_reply?.title || message.interactive?.list_reply?.title
+        : null;
 
     if (message && msgBody) {
       await handleMessage(phoneNumberId, from, msgBody);
@@ -87,9 +87,8 @@ async function handleMessage(phoneNumberId, from, msgBody) {
         await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
       } else if (msg.includes("join")) {
-        await sendMessage(phoneNumberId, from, "📝 Register here: https://example.com/register");
-        await sendYesNoButtons(phoneNumberId, from);
-        session.step = 'post_answer';
+        await sendMessage(phoneNumberId, from, "📝 Great! Please provide your *Name* and *Email* in the format:\n\n`Name: Your Name\nEmail: your.email@example.com`");
+        session.step = 'collect_user_details';
       } else if (msg.includes("talk")) {
         await sendMessage(phoneNumberId, from, "👤 A representative will contact you shortly.");
         await sendRedirectButton(phoneNumberId, from);
@@ -113,6 +112,27 @@ async function handleMessage(phoneNumberId, from, msgBody) {
       } else {
         await sendMessage(phoneNumberId, from, "Please select a valid class type.");
         await sendClassTypeOptions(phoneNumberId, from);
+      }
+      break;
+
+    case 'collect_user_details':
+      const nameMatch = msgBody.match(/name\s*:\s*(.*)/i);
+      const emailMatch = msgBody.match(/email\s*:\s*(.*)/i);
+
+      if (nameMatch && emailMatch) {
+        const name = nameMatch[1].trim();
+        const email = emailMatch[1].trim();
+
+        await sendMessage(phoneNumberId, from, `🙏 Thank you, ${name}! We've received your details. Our team will contact you soon.`);
+        await sendYesNoButtons(phoneNumberId, from);
+
+        // Notify the team
+        const teamMessage = `📢 New Registration:\n\nName: ${name}\nEmail: ${email}\nWhatsApp: https://wa.me/${from}`;
+        await sendMessage(phoneNumberId, TEAM_WHATSAPP_NUMBER, teamMessage);
+
+        session.step = 'post_answer';
+      } else {
+        await sendMessage(phoneNumberId, from, "⚠️ Please provide your details in the correct format:\n\n`Name: Your Name\nEmail: your.email@example.com`");
       }
       break;
 
@@ -157,7 +177,7 @@ async function sendWhatsAppMessage(phoneNumberId, payload) {
 }
 
 async function sendMessage(phoneNumberId, to, text) {
-  await sendWhatsAppMessage(phoneNumberId, { to, text: { body: text } });
+  await sendWhatsAppMessage(phoneNumberId, { to, text: { body: text }, type: 'text' });
 }
 
 async function sendYesNoButtons(phoneNumberId, to) {
@@ -220,28 +240,35 @@ async function sendWelcome(phoneNumberId, to) {
 }
 
 async function sendClassTypeOptions(phoneNumberId, to) {
-  await sendListMessage(phoneNumberId, to, "🧘 Types of Yoga available:\n- Hatha\n- Ashtanga\n- Vinyasa\n- Iyengar\n- Aerial Yoga\n- Meditation", "Choose a Class Type", [
-    { id: "regular", title: "Regular Adult Batch" },
-    { id: "aerial", title: "Aerial Yoga Batch" },
-    { id: "meditation", title: "Meditation Batch" }
+  await sendListMessage(phoneNumberId, to, "Please select the class type you're interested in:", "Class Types", [
+    { id: "class_regular", title: "Regular Yoga" },
+    { id: "class_aerial", title: "Aerial Yoga" },
+    { id: "class_meditation", title: "Meditation Batch" }
   ]);
 }
 
-async function sendClassTimings(phoneNumberId, to, type) {
-  const timings = {
-    regular: [
-      { id: "slot1", title: "6:45 AM - 7:45 AM" },
-      { id: "slot2", title: "7:45 AM - 8:45 AM" },
-      { id: "slot3", title: "8:45 AM - 9:45 AM" },
-      { id: "slot4", title: "10:30 AM - 11:30 AM" }
-    ],
-    aerial: [
-      { id: "slot1", title: "6:00 PM - 7:00 PM (Tue/Thu/Sat)" }
-    ]
-  };
-
-  await sendListMessage(phoneNumberId, to, `📅 Timings for ${type.charAt(0).toUpperCase() + type.slice(1)} Yoga:`, "Available Slots", timings[type]);
+async function sendClassTimings(phoneNumberId, to, classType) {
+  let timingsText = '';
+  switch (classType.toLowerCase()) {
+    case 'regular':
+      timingsText = `🧘‍♀️ *Regular Yoga Timings*:\n
+- Monday to Saturday
+- Morning: 6:00 AM – 7:00 AM
+- Evening: 6:00 PM – 7:00 PM`;
+      break;
+    case 'aerial':
+      timingsText = `🤸 *Aerial Yoga Timings*:\n
+- Friday and Saturday
+- Morning: 7:30 AM – 8:30 AM
+- Evening: 7:30 PM – 8:30 PM`;
+      break;
+    default:
+      timingsText = "Class timings not available.";
+  }
+  await sendMessage(phoneNumberId, to, timingsText);
 }
 
-// ==================== SERVER START ====================
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+// ==================== START SERVER ====================
+app.listen(PORT, () => {
+  console.log(`🚀 Server is running on port ${PORT}`);
+});
