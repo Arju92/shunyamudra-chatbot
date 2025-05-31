@@ -104,19 +104,22 @@ async function handleMessage(phoneNumberId, from, msgBody) {
     case 'select_class_type':
       if (msg.includes("regular_mum")) {
         await sendClassTimings(phoneNumberId, from, 'regular_mum');
+        await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
       } else if (msg.includes("regular_blr")) {
         await sendClassTimings(phoneNumberId, from, 'regular_blr');
+        await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
       } else if (msg.includes("online")) {
-        await sendClassTimings(phoneNumberId, from, 'online');
+        await sendMessage(phoneNumberId, from, "🧘‍♀️ Online batch time: 9:30 AM - 10:30 AM");
+        await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
       } else if (msg.includes("aerial")) {
-        await sendClassTimings(phoneNumberId, from, 'aerial');
+        await sendMessage(phoneNumberId, from, "🧘‍♀️ Aerial batch time: 8:45 AM - 9:45 AM on Saturdays and Sundays in Kharghar");
+        await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
       } else if (msg.includes("meditation")) {
-        await sendClassTimings(phoneNumberId, from, 'meditation');
-        // await sendMessage(phoneNumberId, from, "🧘‍♀️ Meditation batch coming soon. We'll notify you.");
+        await sendMessage(phoneNumberId, from, "🧘‍♀️ Meditation batch time: 8:00 AM - 9:00 AM on Saturdays in Bangalore");
         await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
       } else {
@@ -258,11 +261,11 @@ async function sendWelcome(phoneNumberId, to) {
 
 async function sendClassTypeOptions(phoneNumberId, to) {
   await sendListMessage(phoneNumberId, to, "🧘 Types of Yoga available:\n- Hatha\n- Ashtanga\n- Vinyasa\n- Iyengar\n- Aerial Yoga\n- Meditation", "Choose a Class Type", [
-    { id: "class_regular_mum", title: "Regular Yoga Batch - Mumbai" },
-    { id: "class_regular_blr", title: "Regular Yoga Batch - Bangalore" },
-    { id: "class_online", title: "Online Yoga Batch" },
-    { id: "class_aerial", title: "Aerial Yoga Batch - Mumbai" },
-    { id: "class_meditation", title: "Meditation Batch - Bangalore" }
+    { id: "class_regular_mum", title: "Regular Batch - Mumbai" },
+    { id: "class_aerial", title: "Aerial Batch - Mumbai" },
+    { id: "class_regular_blr", title: "Regular Batch - Bangalore" },
+    { id: "class_meditation", title: "Meditation - Bangalore" },
+    { id: "class_online", title: "Online Batch" }
   ]);
 }
 
@@ -277,18 +280,9 @@ async function sendClassTimings(phoneNumberId, to, type) {
       { id: "slot6", title: "7:30 PM - 8:30 PM" }
     ],
     regular_blr: [
-      { id: "slot1", title: "6:30 AM - 7:30 AM (Bangalore)" },
-      { id: "slot2", title: "8:00 AM - 9:00 AM (Bangalore)" },
-      { id: "slot3", title: "7:00 PM - 8:00 AM (Bangalore)" }
-    ],
-     online: [
-      { id: "slot1", title: "9:30 AM - 10:30 AM (Online)" }
-    ],
-    aerial: [
-      { id: "slot1", title: "8:45 AM - 9:45 AM (Sat/Sun)" }
-    ],
-    meditation: [
-      { id: "slot1", title: "8:00 AM - 9:00 AM (Saturdays in Bangalore)" }
+      { id: "slot1", title: "6:30 AM - 7:30 AM" },
+      { id: "slot2", title: "8:00 AM - 9:00 AM" },
+      { id: "slot3", title: "7:00 PM - 8:00 AM" }
     ]
   };
 
