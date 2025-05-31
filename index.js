@@ -103,7 +103,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
         await checkToCollectDetails(phoneNumberId, from);
         session.step = 'post_answer_detail';
       } else if (msg.includes("talk")) {
-        await sendMessage(phoneNumberId, from, "📝 Great! Please provide your details in the format:\n\n`*Name*: Your Name\n*Email*: your.email@example.com\n*Phone number*: Your Whatsapp Number\n*City*: Your city(optional)\n\n*Query*: your query(optional)`");
+        await sendMessage(phoneNumberId, from, "📝 Great! Please provide your details in the format:\n\n`*Name*: Your Name\n*Email*: your.email@example.com\n*Phone number*: Your Whatsapp Number\n*City*: Your city(optional)\n*Query*: your query(optional)`");
         // await sendRedirectButton(phoneNumberId, from);
         session.step = 'collect_user_details';
       } else if (msg.includes("concern")) {
@@ -173,15 +173,15 @@ async function handleMessage(phoneNumberId, from, msgBody) {
         const emailMatch = msgBody.match(/email\s*:\s*(.*)/i) || msgBody.match(/^[^\s]+@[^\s]+\.[^\s]+$/i);
         const numberMatch = msgBody.match(/phone\s*number\s*:\s*(.*)/i) || msgBody.match(/\b\d{10}\b/);
         const locationMatch = msgBody.match(/location\s*:\s*(.*)/i) || lines[3];
-        const query = msgBody.match(/query\s*:\s*(.*)/i) || lines[4];
+        const queryMatch = msgBody.match(/query\s*:\s*(.*)/i) || lines[4];
 
 
-      if (nameMatch && emailMatch && numberMatch && locationMatch && query) {
+      if (nameMatch && emailMatch && numberMatch && locationMatch && queryMatch) {
         const name = nameMatch[1].trim();
         const email = emailMatch[1].trim();
         const number = numberMatch[1].trim();
         const location = locationMatch?.[1]?.trim() || '';
-        const query = query?.[1]?.trim() || '';
+        const query = queryMatch?.[1]?.trim() || '';
 
         await sendMessage(phoneNumberId, from, `🙏 Thank you, ${name}! We've received your details. Our team will contact you soon.`);
         await sendYesNoButtons(phoneNumberId, from);
