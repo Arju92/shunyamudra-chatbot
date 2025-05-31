@@ -112,8 +112,6 @@ async function handleMessage(phoneNumberId, from, msgBody) {
       } else if (msg.includes("feedback")) {
         await sendMessage(phoneNumberId, from, "📝 Great! Please provide your details in the below format:\n\n`*Name*: Your Name\n*Phone Number*: Your Whatsapp Number\n*City*: Your city`");
         session.step = 'user_details';
-        await sendMessage(phoneNumberId, from, "📝 We value our customers!☺️\nPlease write down your feedback.");
-        session.step = 'collect_user_feedback';
       } else {
         await sendWelcome(phoneNumberId, from); // fallback
       }
@@ -159,6 +157,8 @@ async function handleMessage(phoneNumberId, from, msgBody) {
         const location = locationMatch?.[1]?.trim() || '';
 
         session.userDetails = { name, number, location };
+        await sendMessage(phoneNumberId, from, "📝 We value our customers!☺️\nPlease write down your feedback.");
+        session.step = 'collect_user_feedback';
       } else {
         await sendMessage(phoneNumberId, from, "⚠️ Please provide your details in the correct format:\n\n`Name: Your Name\nPhone No: Your Whatsapp Number\nLocation: Your city`");
         session.step = 'user_details';
