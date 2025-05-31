@@ -35,10 +35,11 @@ app.post('/webhook', async (req, res) => {
     const from = message?.from;
 
     const msgBody = message?.type === 'text'
-      ? message.text.body.trim().toLowerCase()
-      : message?.type === 'interactive'
-        ? message.button?.text || message.list_reply?.title
-        : null;
+    ? message.text.body.trim().toLowerCase()
+    : message?.type === 'interactive'
+      ? message.interactive?.button_reply?.title || message.interactive?.list_reply?.title
+      : null;
+
 
     if (message && msgBody) {
       await handleMessage(phoneNumberId, from, msgBody);
