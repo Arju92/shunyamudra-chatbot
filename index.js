@@ -111,15 +111,15 @@ async function handleMessage(phoneNumberId, from, msgBody) {
         await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
       } else if (msg.includes("online")) {
-        await sendMessage(phoneNumberId, from, "🧘‍♀️ Online batch time: 9:30 AM - 10:30 AM");
+        await sendMessage(phoneNumberId, from, "🧘‍♀️ Online batch time: \n9:30 AM - 10:30 AM");
         await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
       } else if (msg.includes("aerial")) {
-        await sendMessage(phoneNumberId, from, "🧘‍♀️ Aerial batch time: 8:45 AM - 9:45 AM on Saturdays and Sundays in Kharghar");
+        await sendMessage(phoneNumberId, from, "🧘‍♀️ Aerial batch time: \n8:45 AM - 9:45 AM on Saturdays and Sundays in Kharghar");
         await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
       } else if (msg.includes("meditation")) {
-        await sendMessage(phoneNumberId, from, "🧘‍♀️ Meditation batch time: 8:00 AM - 9:00 AM on Saturdays in Bangalore");
+        await sendMessage(phoneNumberId, from, "🧘‍♀️ Meditation batch time: \n8:00 AM - 9:00 AM on Saturdays in Bangalore");
         await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
       } else {
