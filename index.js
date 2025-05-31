@@ -161,6 +161,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
         session.userDetails = { name, number, location };
       } else {
         await sendMessage(phoneNumberId, from, "⚠️ Please provide your details in the correct format:\n\n`Name: Your Name\nPhone No: Your Whatsapp Number\nLocation: Your city`");
+        session.step = 'user_details';
       }
     }
       break;
@@ -192,6 +193,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
         session.step = 'post_answer';
       } else {
         await sendMessage(phoneNumberId, from, "⚠️ Please provide your details in the correct format:\n\n`*Name*: Your Name\n*Email*: your.email@example.com\n*Phone No*: Your Whatsapp Number\n*City*: Your city(optional)\n*Query*: your query(optional)`");
+        session.step = 'collect_user_details';
       }
     }
       break;
@@ -239,7 +241,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
     
     case 'post_answer_detail':
       if (msg === 'yes') {
-        await sendMessage(phoneNumberId, from, "📝 Great! Please provide your details in the format:\n\n`Name: Your Name\nemail: your.email@example.com\nPhone number: Your Whatsapp Number\nlocation: Your city(optional)\nPreferred batch time: Your batch preference(optional)\nquery: your query(optional)`");
+        await sendMessage(phoneNumberId, from, "📝 Great! Please provide your details in the format:\n\n`*Name*: Your Name\n*Email*: your.email@example.com\n*Phone number*: Your Whatsapp Number\n*City*: Your city(optional)\n\n*Query*: your query(optional)`");
         session.step = 'collect_user_details';
       } else {
         await sendYesNoButtons(phoneNumberId, from);
@@ -341,7 +343,7 @@ async function sendWelcome(phoneNumberId, to) {
 }
 
 async function sendClassTypeOptions(phoneNumberId, to) {
-  await sendListMessage(phoneNumberId, to, "🧘 Types of Yoga available:\n- Hatha\n- Ashtanga\n- Vinyasa\n- Iyengar\n- Aerial Yoga\n- Meditation", "Choose a Class Type", [
+  await sendListMessage(phoneNumberId, to, "🧘 We offer \nRegular offline and online batches\n- Aerial Yoga\n- Meditation", "Choose a Class Type", [
     { id: "class_regular_mum", title: "Regular Batch-Mumbai" },
     { id: "class_aerial", title: "Aerial Batch-Mumbai" },
     { id: "class_regular_blr", title: "Regular Batch-Bangalore" },
