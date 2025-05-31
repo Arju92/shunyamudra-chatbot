@@ -151,7 +151,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
         const numberMatch = msgBody.match(/phone\s*number\s*:\s*(.*)/i) || msgBody.match(/\b\d{10}\b/);
         const locationMatch = msgBody.match(/location\s*:\s*(.*)/i) || lines[3];
 
-      if (nameMatch && emailMatch && numberMatch && locationMatch && prefTimeMatch) {
+      if (nameMatch && numberMatch && locationMatch) {
         const name = nameMatch[1].trim();
         const number = numberMatch[1].trim();
         const location = locationMatch?.[1]?.trim() || '';
