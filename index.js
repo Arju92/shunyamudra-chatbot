@@ -11,8 +11,8 @@ const PORT = process.env.PORT || 3000;
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN || 'shunyamudra_token';
 const WHATSAPP_REDIRECT_LINK = process.env.WHATSAPP_REDIRECT_LINK;
-const TEAM_WHATSAPP_NUMBER = process.env.WHATSAPP_NUMBER;
-const SESSION_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+const WHATSAPP_NUMBER = process.env.WHATSAPP_NUMBER;
+const SESSION_TIMEOUT = 10 * 60 * 1000; // 10 minutes
 
 const sessions = new Map();
 
@@ -36,7 +36,7 @@ app.post('/webhook', async (req, res) => {
     const from = message?.from;
 
     const msgBody = message?.type === 'text'
-      ? message.text.body.trim()
+      ? message.text.body.trim().toLowerCase()
       : message?.type === 'interactive'
         ? message.interactive?.button_reply?.title || message.interactive?.list_reply?.title
         : null;
@@ -87,26 +87,34 @@ async function handleMessage(phoneNumberId, from, msgBody) {
         await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
       } else if (msg.includes("join")) {
-        await sendMessage(phoneNumberId, from, "📝 Great! Please provide your *Name* and *Email* in the format:\n\n`Name: Your Name\nEmail: your.email@example.com`");
-        session.step = 'collect_user_details';
+        await sendMessage(phoneNumberId, from, "📝 Register here: https://shunyamudra.com/register");
+        await sendYesNoButtons(phoneNumberId, from);
+        session.step = 'post_answer';
       } else if (msg.includes("talk")) {
-        await sendMessage(phoneNumberId, from, "👤 A representative will contact you shortly.");
-        await sendRedirectButton(phoneNumberId, from);
-        session.step = 'end';
+        await sendMessage(phoneNumberId, from, "📝 Great! Please provide your details in the format:\n\n`name: Your Name\nemail: your.email@example.com\nPhone number: Your Whatsapp Number\nlocation: Your place\nPreferred batch time: Your batch preference`");
+        // await sendRedirectButton(phoneNumberId, from);
+        session.step = 'collect_user_details';
       } else {
         await sendWelcome(phoneNumberId, from); // fallback
       }
       break;
 
     case 'select_class_type':
-      if (msg.includes("regular")) {
-        await sendClassTimings(phoneNumberId, from, 'regular');
+      if (msg.includes("regular_mum")) {
+        await sendClassTimings(phoneNumberId, from, 'regular_mum');
+        session.step = 'post_answer';
+      } else if (msg.includes("regular_blr")) {
+        await sendClassTimings(phoneNumberId, from, 'regular_blr');
+        session.step = 'post_answer';
+      } else if (msg.includes("online")) {
+        await sendClassTimings(phoneNumberId, from, 'online');
         session.step = 'post_answer';
       } else if (msg.includes("aerial")) {
         await sendClassTimings(phoneNumberId, from, 'aerial');
         session.step = 'post_answer';
       } else if (msg.includes("meditation")) {
-        await sendMessage(phoneNumberId, from, "🧘‍♀️ Meditation batch coming soon. We'll notify you.");
+        await sendClassTimings(phoneNumberId, from, 'meditation');
+        // await sendMessage(phoneNumberId, from, "🧘‍♀️ Meditation batch coming soon. We'll notify you.");
         await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
       } else {
@@ -116,23 +124,30 @@ async function handleMessage(phoneNumberId, from, msgBody) {
       break;
 
     case 'collect_user_details':
-      const nameMatch = msgBody.match(/name\s*:\s*(.*)/i);
-      const emailMatch = msgBody.match(/email\s*:\s*(.*)/i);
+        const nameMatch = msgBody.match(/name\s*:\s*(.*)/i);
+        const emailMatch = msgBody.match(/email\s*:\s*(.*)/i);
+        const numberMatch = msgBody.match(/phone\s*number\s*:\s*(.*)/i);
+        const locationMatch = msgBody.match(/location\s*:\s*(.*)/i);
+        const prefTimeMatch = msgBody.match(/preferred\s*batch\s*time\s*:\s*(.*)/i);
 
-      if (nameMatch && emailMatch) {
+
+      if (nameMatch && emailMatch && numberMatch && locationMatch && prefTimeMatch) {
         const name = nameMatch[1].trim();
         const email = emailMatch[1].trim();
+        const number = numberMatch[1].trim();
+        const location = locationMatch[1].trim();
+        const prefTime = prefTimeMatch[1].trim();
 
         await sendMessage(phoneNumberId, from, `🙏 Thank you, ${name}! We've received your details. Our team will contact you soon.`);
         await sendYesNoButtons(phoneNumberId, from);
 
         // Notify the team
-        const teamMessage = `📢 New Registration:\n\nName: ${name}\nEmail: ${email}\nWhatsApp: https://wa.me/${from}`;
-        await sendMessage(phoneNumberId, TEAM_WHATSAPP_NUMBER, teamMessage);
+        const teamMessage = `New customer enquiry received:\n\nFull Name: ${name}\nPhone No: ${number}\nEmail Id: ${email}\nLocation: ${location}\nPreferred class time: ${prefTime}`;
+        await sendMessage(phoneNumberId, WHATSAPP_NUMBER, teamMessage);
 
         session.step = 'post_answer';
       } else {
-        await sendMessage(phoneNumberId, from, "⚠️ Please provide your details in the correct format:\n\n`Name: Your Name\nEmail: your.email@example.com`");
+        await sendMessage(phoneNumberId, from, "⚠️ Please provide your details in the correct format:\n\n`Name: Your Name\nEmail: your.email@example.com\nPhone No: Your Whatsapp Number\nLocation: Your place\nPreferred batch time: Your batch preference`");
       }
       break;
 
@@ -197,21 +212,21 @@ async function sendYesNoButtons(phoneNumberId, to) {
   });
 }
 
-async function sendRedirectButton(phoneNumberId, to) {
-  await sendWhatsAppMessage(phoneNumberId, {
-    to,
-    type: 'interactive',
-    interactive: {
-      type: 'button',
-      body: { text: "Click below to chat directly." },
-      action: {
-        buttons: [
-          { type: 'url', url: WHATSAPP_REDIRECT_LINK, title: 'Chat on WhatsApp' }
-        ]
-      }
-    }
-  });
-}
+// async function sendRedirectButton(phoneNumberId, to) {
+//   await sendWhatsAppMessage(phoneNumberId, {
+//     to,
+//     type: 'interactive',
+//     interactive: {
+//       type: 'button',
+//       body: { text: "Click below to chat directly." },
+//       action: {
+//         buttons: [
+//           { type: 'url', url: WHATSAPP_REDIRECT_LINK, title: 'Chat on WhatsApp' }
+//         ]
+//       }
+//     }
+//   });
+// }
 
 async function sendListMessage(phoneNumberId, to, bodyText, title, options) {
   await sendWhatsAppMessage(phoneNumberId, {
@@ -240,32 +255,42 @@ async function sendWelcome(phoneNumberId, to) {
 }
 
 async function sendClassTypeOptions(phoneNumberId, to) {
-  await sendListMessage(phoneNumberId, to, "Please select the class type you're interested in:", "Class Types", [
-    { id: "class_regular", title: "Regular Yoga" },
-    { id: "class_aerial", title: "Aerial Yoga" },
-    { id: "class_meditation", title: "Meditation Batch" }
+  await sendListMessage(phoneNumberId, to, "🧘 Types of Yoga available:\n- Hatha\n- Ashtanga\n- Vinyasa\n- Iyengar\n- Aerial Yoga\n- Meditation", "Choose a Class Type", [
+    { id: "class_regular_mum", title: "Regular Yoga Batch - Mumbai" },
+    { id: "class_regular_blr", title: "Regular Yoga Batch - Bangalore" },
+    { id: "class_online", title: "Online Yoga Batch" },
+    { id: "class_aerial", title: "Aerial Yoga Batch - Mumbai" },
+    { id: "class_meditation", title: "Meditation Batch - Bangalore" }
   ]);
 }
 
-async function sendClassTimings(phoneNumberId, to, classType) {
-  let timingsText = '';
-  switch (classType.toLowerCase()) {
-    case 'regular':
-      timingsText = `🧘‍♀️ *Regular Yoga Timings*:\n
-- Monday to Saturday
-- Morning: 6:00 AM – 7:00 AM
-- Evening: 6:00 PM – 7:00 PM`;
-      break;
-    case 'aerial':
-      timingsText = `🤸 *Aerial Yoga Timings*:\n
-- Friday and Saturday
-- Morning: 7:30 AM – 8:30 AM
-- Evening: 7:30 PM – 8:30 PM`;
-      break;
-    default:
-      timingsText = "Class timings not available.";
-  }
-  await sendMessage(phoneNumberId, to, timingsText);
+async function sendClassTimings(phoneNumberId, to, type) {
+  const timings = {
+    regular_mum: [
+      { id: "slot1", title: "6:45 AM - 7:45 AM" },
+      { id: "slot2", title: "7:45 AM - 8:45 AM" },
+      { id: "slot3", title: "8:45 AM - 9:45 AM" },
+      { id: "slot4", title: "10:30 AM - 11:30 AM" },
+      { id: "slot5", title: "6:30 PM - 7:30 PM" },
+      { id: "slot6", title: "7:30 PM - 8:30 PM" }
+    ],
+    regular_blr: [
+      { id: "slot1", title: "6:30 AM - 7:30 AM (Bangalore)" },
+      { id: "slot2", title: "8:00 AM - 9:00 AM (Bangalore)" },
+      { id: "slot3", title: "7:00 PM - 8:00 AM (Bangalore)" }
+    ],
+     online: [
+      { id: "slot1", title: "9:30 AM - 10:30 AM (Online)" }
+    ],
+    aerial: [
+      { id: "slot1", title: "8:45 AM - 9:45 AM (Sat/Sun)" }
+    ],
+    meditation: [
+      { id: "slot1", title: "8:00 AM - 9:00 AM (Saturdays in Bangalore)" }
+    ]
+  };
+
+  await sendListMessage(phoneNumberId, to, `📅 Timings for ${type.charAt(0).toUpperCase() + type.slice(1)} Yoga:`, "Available Slots", timings[type]);
 }
 
 // ==================== START SERVER ====================
