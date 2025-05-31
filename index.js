@@ -94,7 +94,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
       if (msg.includes("class timings")) {
         await sendClassTypeOptions(phoneNumberId, from);
         session.step = 'select_class_type';
-      } else if (msg.includes("fee")) {
+      } else if (msg.includes("fee structure")) {
         await sendMessage(phoneNumberId, from, "💰 Weekday Batch Monthly fee: ₹2500 + Admission: ₹500 (one-time).\nWeekend Batch Monthly fee: 2000 + Admission: ₹500 (one-time).\nAerial Batch Monthly fee: 3200.\nOnline Batch Monthly fee: 2000.\nMeditation Batch Monthly fee: 1500. \n\nWe recommend you to bring your own yoga mat and water.");
         await checkToCollectDetails(phoneNumberId, from);
         session.step = 'post_answer_detail';
@@ -201,6 +201,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
     case 'collect_user_concern':
         const concern = msgBody.trim();
 
+        if(concern){
         await sendMessage(phoneNumberId, from, `🙏 Thank you! We've noted your concern and our team is working to resolve it.`);
         await sendYesNoButtons(phoneNumberId, from);
 
@@ -209,11 +210,16 @@ async function handleMessage(phoneNumberId, from, msgBody) {
         await sendMessage(phoneNumberId, WHATSAPP_NUMBER, concernMessage);
 
         session.step = 'post_answer';
+        }else {
+        await sendMessage(phoneNumberId, from, "⚠️ Please provide correct concer");
+        session.step = 'collect_user_concern';
+      }
     break;
 
     case 'collect_user_feedback':{
       const feedback = msgBody.trim();
 
+      if(feedback){
         const { name, number, location } = session.userDetails || {};
         await sendMessage(phoneNumberId, from, `🙏 Thank you, ${name}! We've received your details. Our team will contact you soon.`);
         await sendYesNoButtons(phoneNumberId, from);
@@ -223,6 +229,10 @@ async function handleMessage(phoneNumberId, from, msgBody) {
         await sendMessage(phoneNumberId, WHATSAPP_NUMBER, feedbackMessage);
 
         session.step = 'post_answer';
+      }else {
+        await sendMessage(phoneNumberId, from, "⚠️ Please provide correct feedback");
+        session.step = 'collect_user_feedback';
+      }
     }
       break;
 
