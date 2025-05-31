@@ -103,14 +103,14 @@ async function handleMessage(phoneNumberId, from, msgBody) {
         await checkToCollectDetails(phoneNumberId, from);
         session.step = 'post_answer_detail';
       } else if (msg.includes("talk")) {
-        await sendMessage(phoneNumberId, from, "📝 Great! Please provide your details in the format:\n\n`Name: Your Name\nemail: your.email@example.com\nPhone number: Your Whatsapp Number\nlocation: Your city(optional)\nPreferred batch time: Your batch preference(optional)\nquery: your query(optional)`");
+        await sendMessage(phoneNumberId, from, "📝 Great! Please provide your details in the format:\n\n`*Name*: Your Name\n*Email*: your.email@example.com\n*Phone number*: Your Whatsapp Number\n*City*: Your city(optional)\n\n*Query*: your query(optional)`");
         // await sendRedirectButton(phoneNumberId, from);
         session.step = 'collect_user_details';
       } else if (msg.includes("concern")) {
         await sendMessage(phoneNumberId, from, "📝 Thank You for reaching out!☺️\nPlease write your concern in detail below.");
         session.step = 'collect_user_concern';
       } else if (msg.includes("feedback")) {
-        await sendMessage(phoneNumberId, from, "📝 Great! Please provide your details in the below format:\n\n`Name: Your Name\nPhone No: Your Whatsapp Number\nLocation: Your city`");
+        await sendMessage(phoneNumberId, from, "📝 Great! Please provide your details in the below format:\n\n`*Name*: Your Name\n*Phone Number*: Your Whatsapp Number\n*City*: Your city`");
         session.step = 'user_details';
         await sendMessage(phoneNumberId, from, "📝 We value our customers!☺️\nPlease write down your feedback.");
         session.step = 'collect_user_feedback';
@@ -172,26 +172,26 @@ async function handleMessage(phoneNumberId, from, msgBody) {
         const emailMatch = msgBody.match(/email\s*:\s*(.*)/i) || msgBody.match(/^[^\s]+@[^\s]+\.[^\s]+$/i);
         const numberMatch = msgBody.match(/phone\s*number\s*:\s*(.*)/i) || msgBody.match(/\b\d{10}\b/);
         const locationMatch = msgBody.match(/location\s*:\s*(.*)/i) || lines[3];
-        const prefTimeMatch = msgBody.match(/preferred\s*batch\s*time\s*:\s*(.*)/i) || lines[4];
+        const query = msgBody.match(/query\s*:\s*(.*)/i) || lines[4];
 
 
-      if (nameMatch && emailMatch && numberMatch && locationMatch && prefTimeMatch) {
+      if (nameMatch && emailMatch && numberMatch && locationMatch && query) {
         const name = nameMatch[1].trim();
         const email = emailMatch[1].trim();
         const number = numberMatch[1].trim();
         const location = locationMatch?.[1]?.trim() || '';
-        const prefTime = prefTimeMatch?.[1]?.trim() || '';
+        const query = query?.[1]?.trim() || '';
 
         await sendMessage(phoneNumberId, from, `🙏 Thank you, ${name}! We've received your details. Our team will contact you soon.`);
         await sendYesNoButtons(phoneNumberId, from);
 
         // Notify the team
-        const teamMessage = `New customer enquiry received:\n\nFull Name: ${name}\nPhone No: ${number}\nEmail Id: ${email}\nLocation: ${location}\nPreferred class time: ${prefTime}`;
+        const teamMessage = `New customer enquiry received:\n\n*Full Name*: ${name}\n*Phone No*: ${number}\n*Email Id*: ${email}\n*City*: ${location}\n*Query*: ${query}`;
         await sendMessage(phoneNumberId, WHATSAPP_NUMBER, teamMessage);
 
         session.step = 'post_answer';
       } else {
-        await sendMessage(phoneNumberId, from, "⚠️ Please provide your details in the correct format:\n\n`Name: Your Name\nEmail: your.email@example.com\nPhone No: Your Whatsapp Number\nLocation: Your place\nPreferred batch time: Your batch preference`");
+        await sendMessage(phoneNumberId, from, "⚠️ Please provide your details in the correct format:\n\n`*Name*: Your Name\n*Email*: your.email@example.com\n*Phone No*: Your Whatsapp Number\n*City*: Your city(optional)\n*Query*: your query(optional)`");
       }
     }
       break;
@@ -217,7 +217,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
         await sendYesNoButtons(phoneNumberId, from);
 
         // Notify the team
-        const feedbackMessage = `New customer feedback received:\n ${feedback}\n${name}\n${number}\n${location}`;
+        const feedbackMessage = `New customer feedback received:\n\n*Feedback*: ${feedback}\n\n*Name*: ${name}\n*Phone No*: ${number}\n*City*: ${location}`;
         await sendMessage(phoneNumberId, WHATSAPP_NUMBER, feedbackMessage);
 
         session.step = 'post_answer';
