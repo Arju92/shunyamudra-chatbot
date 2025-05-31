@@ -261,10 +261,10 @@ async function sendWelcome(phoneNumberId, to) {
 
 async function sendClassTypeOptions(phoneNumberId, to) {
   await sendListMessage(phoneNumberId, to, "🧘 Types of Yoga available:\n- Hatha\n- Ashtanga\n- Vinyasa\n- Iyengar\n- Aerial Yoga\n- Meditation", "Choose a Class Type", [
-    { id: "class_regular_mum", title: "Regular Batch - Mumbai" },
-    { id: "class_aerial", title: "Aerial Batch - Mumbai" },
-    { id: "class_regular_blr", title: "Regular Batch - Bangalore" },
-    { id: "class_meditation", title: "Meditation - Bangalore" },
+    { id: "class_regular_mum", title: "Regular Batch-Mumbai" },
+    { id: "class_aerial", title: "Aerial Batch-Mumbai" },
+    { id: "class_regular_blr", title: "Regular Batch-Bangalore" },
+    { id: "class_meditation", title: "Meditation-Bangalore" },
     { id: "class_online", title: "Online Batch" }
   ]);
 }
