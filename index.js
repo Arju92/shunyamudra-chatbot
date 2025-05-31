@@ -10,7 +10,6 @@ app.use(express.json());
 const PORT = process.env.PORT || 3000;
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN || 'shunyamudra_token';
-const WHATSAPP_REDIRECT_LINK = process.env.WHATSAPP_REDIRECT_LINK;
 const WHATSAPP_NUMBER = process.env.WHATSAPP_NUMBER;
 const SESSION_TIMEOUT = 10 * 60 * 1000; // 10 minutes
 
@@ -34,7 +33,10 @@ app.post('/webhook', async (req, res) => {
     const message = req.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
     const phoneNumberId = req.body?.entry?.[0]?.changes?.[0]?.value?.metadata?.phone_number_id;
     const from = message?.from;
-
+    if (!phoneNumberId) {
+      console.error("Phone Number ID is undefined");
+      return;
+    }
     const msgBody = message?.type === 'text'
       ? message.text.body.trim().toLowerCase()
       : message?.type === 'interactive'
