@@ -102,11 +102,11 @@ async function handleMessage(phoneNumberId, from, msgBody) {
       break;
 
     case 'select_class_type':
-      if (msg.includes("regular_mum")) {
+      if (msg.includes("Mumbai")) {
         await sendClassTimings(phoneNumberId, from, 'regular_mum');
         await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
-      } else if (msg.includes("regular_blr")) {
+      } else if (msg.includes("Bangalore")) {
         await sendClassTimings(phoneNumberId, from, 'regular_blr');
         await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
