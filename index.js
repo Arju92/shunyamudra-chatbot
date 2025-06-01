@@ -89,8 +89,6 @@ async function handleMessage(phoneNumberId, from, msgBody) {
       } else if (msg.includes("fee structure")) {
         await sendFeeDetails(phoneNumberId, from);
         session.step = 'select_city';
-        await checkToCollectDetails(phoneNumberId, from);
-        session.step = 'post_answer_detail';
       } else if (msg.includes("join")) {
         await sendMessage(phoneNumberId, from, "📝 Register here: https://shunyamudra.com/register");
         await checkToCollectDetails(phoneNumberId, from);
