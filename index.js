@@ -74,6 +74,13 @@ function extractUserDetails(msgBody) {
   return { userName, userEmail };
 }
 
+function extractCityKey(userCity) {
+  const lowerCity = userCity.toLowerCase();
+  if (lowerCity.includes("mumbai")) return "mumbai";
+  if (lowerCity.includes("bangalore")) return "bangalore";
+  return "others";
+}
+
 function resetTimeout(phoneNumberId, from) {
   let session = sessions.get(from) || {};
   if(session.finalTimeout) clearAllTimeouts(session.finalTimeout);
@@ -217,7 +224,14 @@ async function handleMessage(phoneNumberId, from, msgBody) {
             "Evening Batch\n7:00 PM - 8:00 PM\n\n\n" +
             "🧘‍♀️ *Meditation Batch*: \n\nMorning Batch\nSaturday only\n8:00 AM - 9:00 AM"
         };
-        await sendMessage(phoneNumberId, from, cityTimings[session.userCity] || "Invalid city.");
+        const cityKey = extractCityKey(session.userCity);
+
+        if (cityKey === "others") {
+          await sendMessage(phoneNumberId, from, "🙏 We're currently offering sessions only in Mumbai and Bangalore.");
+        } else {
+          await sendMessage(phoneNumberId, from, cityTimings[cityKey]);
+        }
+
         await checkToCollectDetails(phoneNumberId, from);
         session.step = 'post_answer_detail';
       } else if (msg.includes("fee structure")) {
@@ -235,7 +249,14 @@ async function handleMessage(phoneNumberId, from, msgBody) {
           "- Meditation Batch: ₹1,500/month\n\n" +
           "🧘‍♀️ We recommend bringing your own yoga mat and a bottle of water for comfort & convenience."
         };
-        await sendMessage(phoneNumberId, from, cityFees[session.userCity] || "Invalid city.");
+        const cityKey = extractCityKey(session.userCity);
+        
+        if (cityKey === "others") {
+          await sendMessage(phoneNumberId, from, "🙏 We're currently offering sessions only in Mumbai and Bangalore.");
+        } else {
+          await sendMessage(phoneNumberId, from, cityFees[cityKey]);
+        }
+
         await checkToCollectDetails(phoneNumberId, from);
         session.step = 'post_answer_detail';
       } else if (msg.includes("join")) {
