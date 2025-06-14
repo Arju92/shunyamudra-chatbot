@@ -121,9 +121,19 @@ async function handleMessage(phoneNumberId, from, msgBody) {
   switch (session.step) {
     case 'welcome':
       if (["hi", "hello", "hey", "namaste"].includes(msg)) {
+        // Reset session to a clean state
+        Object.assign(session, {
+          step: 'collect_initial_details',
+          phoneNumberId,
+          from,
+          userName: null,
+          userEmail: null,
+          userStatus: null,
+          userCity: null
+        });
+
         await sendMessage(phoneNumberId, from, 
           "🙏 Welcome! Please share your *Name* and *Email*.\n\nExample:\n*Name*: John Doe\n*Email*: john@example.com");
-        session.step = 'collect_initial_details';
       } else {
         await sendMessage(phoneNumberId, from, "👋 Type *Hi*, *Hello*, or *Namaste* to begin.");
       }
