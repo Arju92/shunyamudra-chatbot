@@ -43,8 +43,6 @@ app.post('/webhook', async (req, res) => {
         ? message.interactive?.button_reply?.title || message.interactive?.list_reply?.title
         : null;
 
-    console.log('EXTRACTED MSGBODY:', msgBody); 
-
     if (message && msgBody) {
       await handleMessage(phoneNumberId, from, msgBody, message);
     }
@@ -115,24 +113,10 @@ async function notifyTeam(phoneNumberId, session, extraInfo = '') {
 
 // ==================== MESSAGE FLOW LOGIC ====================
 async function handleMessage(phoneNumberId, from, msgBody) {
-  console.log('RAW INCOMING MESSAGE:', { 
-      phoneNumberId, 
-      from, 
-      msgBody,
-      sessionExists: sessions.has(from)
-    });
-
   resetTimeout(phoneNumberId, from);
   const session = sessions.get(from) || { step: 'welcome', phoneNumberId, from };
-
-  console.log('PROCESSING WITH SESSION:', {
-    step: session.step,
-    previousMsg: msgBody
-  });
-
+  sessions.set(from, session);  // ✅ Save the newly created session
   const msg = msgBody.toLowerCase().replace(/[?]/g, '').trim();
-
-  console.log('PROCESSED MESSAGE:', msg);
 
   switch (session.step) {
     case 'welcome':
