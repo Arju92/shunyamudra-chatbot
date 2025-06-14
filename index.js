@@ -129,21 +129,35 @@ async function handleMessage(phoneNumberId, from, msgBody) {
       break;
 
     case 'collect_initial_details':
-      const { userName, userEmail } = extractUserDetails(msgBody);
-      if (userName && userEmail) {
-        Object.assign(session, { userName, userEmail, userPhoneNumber: from });
-        await sendMessage(phoneNumberId, from, `Thank you, *${userName}*!`);
-        await checkCustomerStatus(phoneNumberId, from);
-        session.step = 'select_city';
-      } else {
-        await sendMessage(phoneNumberId, from, 
-          "⚠️ Please provide *Name* and *Email* correctly.\n\nExample:\n*Name*: John Doe\n*Email*: john@example.com");
-      }
-      break;
+    const { userName, userEmail } = extractUserDetails(msgBody);
+    if (userName && userEmail) {
+      Object.assign(session, { userName, userEmail, userPhoneNumber: from });
+      await sendMessage(phoneNumberId, from, `Thank you, *${userName}*!`);
+      await checkCustomerStatus(phoneNumberId, from);
+      session.step = 'check_status'; // Add this new step
+    } else {
+      await sendMessage(phoneNumberId, from, 
+        "⚠️ Please provide *Name* and *Email* correctly.\n\nExample:\n*Name*: John Doe\n*Email*: john@example.com");
+    }
+    break;
+
+    case 'check_status':
+    if (msg === 'new') {
+      session.userStatus = 'new client';
+      await sendWelcome(phoneNumberId, from);
+      session.step = 'select_city';
+    } else if (msg === 'existing') {
+      session.userStatus = 'existing client';
+      await sendWelcome(phoneNumberId, from);
+      session.step = 'select_city';
+    } else {
+      await checkCustomerStatus(phoneNumberId, from);
+    }
+    break;
 
     case 'select_city':
       session.userCity = msg;
-      if (msg.includes("kharghar") || msg.includes("whitefield")) {
+      if (msg.includes("mumbai") || msg.includes("bangalore")) {
         if (session.userStatus === 'new client') {
           await sendClassMode(phoneNumberId, from);
           session.step = 'class_mode';
