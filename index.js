@@ -155,11 +155,11 @@ async function handleMessage(phoneNumberId, from, msgBody) {
     case 'check_status':
     if (msg === 'new') {
       session.userStatus = 'new client';
-      await sendWelcome(phoneNumberId, from);
+      await sendSelectCity(phoneNumberId, from);
       session.step = 'select_city';
     } else if (msg === 'existing') {
       session.userStatus = 'existing client';
-      await sendWelcome(phoneNumberId, from);
+      await sendSelectCity(phoneNumberId, from);
       session.step = 'select_city';
     } else {
       await checkCustomerStatus(phoneNumberId, from);
@@ -188,7 +188,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
         }
       } else {
         await sendMessage(phoneNumberId, from, "Please select a city.");
-        await sendWelcome(phoneNumberId, from, session.userName);
+        session.step = 'welcome';
       }
       break;
 
@@ -268,7 +268,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
         await sendMessage(phoneNumberId, from, "🌟 We’d love your feedback!");
         session.step = 'collect_user_feedback';
       } else {
-        await sendWelcome(phoneNumberId, from, session.userName);
+        await sendSelectCity(phoneNumberId, from, session.userName);
       }
       break;
 
@@ -332,7 +332,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
       break;
 
     default:
-      await sendWelcome(phoneNumberId, from, session.userName);
+      await sendSelectCity(phoneNumberId, from, session.userName);
       session.step = 'main_menu';
   }
 
@@ -441,7 +441,7 @@ async function sendListMessage(phoneNumberId, to, bodyText, title, options) {
 }
 
 // ==================== MENUS ====================
-async function sendWelcome(phoneNumberId, to, userName = '') {
+async function sendSelectCity(phoneNumberId, to, userName = '') {
   await sendListMessage(phoneNumberId, to,
     `🙏 Welcome${userName ? `, ${userName}` : ''}! Choose your city:`,
     "City",
