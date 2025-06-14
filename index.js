@@ -11,14 +11,12 @@ const PORT = process.env.PORT || 3000;
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN || 'shunyamudra_token';
 const WHATSAPP_NUMBER = process.env.WHATSAPP_NUMBER;
-const SESSION_TIMEOUT = 10 * 60 * 1000; // 10 minutes
 
 const sessions = new Map();
 
-// ==================== VERIFY WEBHOOK ====================
+// ==================== WEBHOOK VERIFICATION ====================
 app.get('/webhook', (req, res) => {
   const { 'hub.mode': mode, 'hub.verify_token': token, 'hub.challenge': challenge } = req.query;
-
   if (mode === 'subscribe' && token === VERIFY_TOKEN) {
     console.log('✅ Webhook Verified');
     res.status(200).send(challenge);
@@ -27,16 +25,18 @@ app.get('/webhook', (req, res) => {
   }
 });
 
-// ==================== HANDLE MESSAGES ====================
+// ==================== MESSAGE HANDLER ====================
 app.post('/webhook', async (req, res) => {
   try {
     const message = req.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
     const phoneNumberId = req.body?.entry?.[0]?.changes?.[0]?.value?.metadata?.phone_number_id;
     const from = message?.from;
+
     if (!phoneNumberId) {
-      console.error("Phone Number ID is undefined");
-      return;
+      console.error("❌ Missing Phone Number ID");
+      return res.sendStatus(400);
     }
+
     const msgBody = message?.type === 'text'
       ? message.text.body.trim().toLowerCase()
       : message?.type === 'interactive'
@@ -44,7 +44,7 @@ app.post('/webhook', async (req, res) => {
         : null;
 
     if (message && msgBody) {
-      await handleMessage(phoneNumberId, from, msgBody);
+      await handleMessage(phoneNumberId, from, msgBody, message);
     }
 
     res.sendStatus(200);
@@ -54,179 +54,252 @@ app.post('/webhook', async (req, res) => {
   }
 });
 
-// ==================== SESSION MANAGEMENT ====================
-function resetTimeout(from) {
-  let session = sessions.get(from) || {};
-  if (session.timeout) clearTimeout(session.timeout);
+// ==================== CORE FUNCTIONS ====================
+function extractUserDetails(msgBody) {
+  const nameMatch = msgBody.match(/\*?name\*?\s*[:\-]?\s*(.*)/i);
+  const emailMatch = msgBody.match(/\*?email\*?\s*[:\-]?\s*(.*)/i);
+  let userName = nameMatch ? nameMatch[1].trim() : null;
+  let userEmail = emailMatch ? emailMatch[1].trim() : null;
 
-  // 10-minute final timeout
-  session.timeout = setTimeout(async () => {
-    await sendMessage(session.phoneNumberId, session.from, "⏳ Your session has timed out. Please type *Hi* or *Hello* to start again.");
+  if (!userName || !userEmail) {
+    const lines = msgBody.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    lines.forEach(line => {
+      if (!userEmail && /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z]{2,}$/i.test(line)) {
+        userEmail = line;
+      } else if (!userName && !line.toLowerCase().includes("email")) {
+        userName = line.replace(/^name[:\-]?\s*/i, '').trim();
+      }
+    });
+  }
+  return { userName, userEmail };
+}
+
+function resetTimeout(phoneNumberId, from) {
+  const session = sessions.get(from) || {};
+  clearAllTimeouts(session);
+
+  session.followUp1 = setTimeout(async () => {
+    await sendMessage(phoneNumberId, from, "⏳ We didn't hear from you for a while. Would you like a demo?");
+    await sendYesNoButtons(phoneNumberId, from);
+  }, 30 * 60 * 1000);
+
+  session.followUp2 = setTimeout(async () => {
+    await sendMessage(phoneNumberId, from, "🙏 Just checking in again. Want to try a free demo class?");
+    await sendYesNoButtons(phoneNumberId, from);
+  }, 60 * 60 * 1000);
+
+  session.finalTimeout = setTimeout(async () => {
+    await sendMessage(phoneNumberId, from, 
+      "⏳ Session timed out.\n\nYour wellness matters to us. Thanks for connecting with *Shunyamudra Yoga & Wellness Center*.\n\nType *Hi* to restart.");
     sessions.delete(from);
-  }, SESSION_TIMEOUT);  // 10 minutes
+  }, 65 * 60 * 1000);
 
   sessions.set(from, session);
 }
 
-// ==================== HANDLE INCOMING USER LOGIC ====================
-async function handleMessage(phoneNumberId, from, msgBody) {
-  resetTimeout(from);
+function clearAllTimeouts(session) {
+  ['timeout', 'followUp1', 'followUp2', 'finalTimeout'].forEach(t => clearTimeout(session[t]));
+}
 
+async function notifyTeam(phoneNumberId, session, extraInfo = '') {
+  const teamMessage = `⚠️ New Enquiry:\n\n` +
+    `*From*: ${session.userName}\n` +
+    `*Phone*: ${session.userPhoneNumber}\n` +
+    `*Email*: ${session.userEmail}\n` +
+    `*City*: ${session.userCity}\n` +
+    extraInfo;
+  await sendMessage(phoneNumberId, WHATSAPP_NUMBER, teamMessage);
+}
+
+// ==================== MESSAGE FLOW LOGIC ====================
+async function handleMessage(phoneNumberId, from, msgBody) {
+  resetTimeout(phoneNumberId, from);
   const session = sessions.get(from) || { step: 'welcome', phoneNumberId, from };
   const msg = msgBody.toLowerCase().replace(/[?]/g, '').trim();
 
   switch (session.step) {
     case 'welcome':
-      await sendWelcome(phoneNumberId, from);
-      session.step = 'main_menu';
+      if (["hi", "hello", "hey", "namaste"].includes(msg)) {
+        await sendMessage(phoneNumberId, from, 
+          "🙏 Welcome! Please share your *Name* and *Email*.\n\nExample:\n*Name*: John Doe\n*Email*: john@example.com");
+        session.step = 'collect_initial_details';
+      } else {
+        await sendMessage(phoneNumberId, from, "👋 Type *Hi*, *Hello*, or *Namaste* to begin.");
+      }
+      break;
+
+    case 'collect_initial_details':
+      const { userName, userEmail } = extractUserDetails(msgBody);
+      if (userName && userEmail) {
+        Object.assign(session, { userName, userEmail, userPhoneNumber: from });
+        await sendMessage(phoneNumberId, from, `Thank you, *${userName}*!`);
+        await checkCustomerStatus(phoneNumberId, from);
+        session.step = 'select_city';
+      } else {
+        await sendMessage(phoneNumberId, from, 
+          "⚠️ Please provide *Name* and *Email* correctly.\n\nExample:\n*Name*: John Doe\n*Email*: john@example.com");
+      }
+      break;
+
+    case 'select_city':
+      session.userCity = msg;
+      if (msg.includes("kharghar") || msg.includes("whitefield")) {
+        if (session.userStatus === 'new client') {
+          await sendClassMode(phoneNumberId, from);
+          session.step = 'class_mode';
+        } else if (session.userStatus === 'existing client') {
+          await sendExistingWelcome(phoneNumberId, from);
+          session.step = 'main_menu';
+        }
+      } else if (msg.includes("others")) {
+        if (session.userStatus === 'new client') {
+          await sendMessage(phoneNumberId, from, 
+            "🧘‍♀️ We’re currently in Mumbai/Bangalore. Join our online batch:\n\n*Timings*: Mon/Tue/Thu/Fri, 9:30 AM - 10:30 AM");
+          await checkToCollectDetails(phoneNumberId, from);
+          session.step = 'post_answer_detail';
+        } else {
+          await sendExistingWelcome(phoneNumberId, from);
+          session.step = 'main_menu';
+        }
+      } else {
+        await sendMessage(phoneNumberId, from, "Please select a city.");
+        await sendWelcome(phoneNumberId, from, session.userName);
+      }
+      break;
+
+    case 'class_mode':
+      if (msg.includes("studio")) {
+        await sendNewWelcome(phoneNumberId, from);
+        session.step = 'main_menu';
+      } else if (msg.includes("personal")) {
+        await sendMessage(phoneNumberId, from, "🙏 Our team will contact you shortly for personal sessions.");
+        await notifyTeam(phoneNumberId, session, "*Request*: Personal Class");
+        await sendYesNoButtons(phoneNumberId, from);
+        session.step = 'post_answer';
+      } else {
+        await sendMessage(phoneNumberId, from, "Please select a class mode.");
+        await sendClassMode(phoneNumberId, from);
+      }
       break;
 
     case 'main_menu':
       if (msg.includes("class timings")) {
-        await sendClassTypeOptions(phoneNumberId, from);
-        session.step = 'select_class_type';
+        const cityTimings = {
+          mumbai: 
+            "🧘‍♀️ *Batch times at Kharghar, Navi Mumbai*: \n" +
+            "🧘‍♀️ *Regular Weekday Batch*: \n\n" +
+            "Morning Batch\nMonday to Friday\n" +
+            "6:45 AM - 7:45 AM\n7:45 AM - 8:45 AM\n" +
+            "8:45 AM - 9:45 AM\n10:30 AM - 11:30 AM\n\n" +
+            "Evening Batch\n6:30 PM - 7:30 PM\n7:30 PM - 8:30 PM\n\n\n" +
+            "🧘‍♀️ *Weekend Batch*: \n\nMorning Batch\nSaturday & Sunday\n7:00 AM - 8:15 AM\n\n\n" +
+            "🧘‍♀️ *Aerial Yoga Batch*: \n\nMorning Batch\nSaturday & Sunday\n8:30 AM - 9:45 AM",
+
+        bangalore: 
+            "🧘‍♀️ *Batch times at Whitefield, Bangalore*: \n" +
+            "🧘‍♀️ *Regular Weekday Batch*: \n\n" +
+            "Morning Batch\nMonday, Tuesday, Thursday, Friday\n" +
+            "6:30 AM - 7:30 AM\n8:00 AM - 9:00 AM\n\n" +
+            "Evening Batch\n7:00 PM - 8:00 PM\n\n\n" +
+            "🧘‍♀️ *Meditation Batch*: \n\nMorning Batch\nSaturday only\n8:00 AM - 9:00 AM"
+        };
+        await sendMessage(phoneNumberId, from, cityTimings[session.userCity] || "Invalid city.");
+        await checkToCollectDetails(phoneNumberId, from);
+        session.step = 'post_answer_detail';
       } else if (msg.includes("fee structure")) {
-        await sendFeeDetails(phoneNumberId, from);
-        session.step = 'select_city';
+        const cityFees = {
+          mumbai: 
+          "💰 Fee Details at Shunyamudra Yoga & Wellness Center, Kharghar, Navi Mumbai:\n\n" +
+          "- Weekday Batch: ~₹3,000~ ₹2,500/month + ₹500 (one-time admission)\n" +
+          "- Weekend Batch: ₹2,000/month + ₹500 (one-time admission)\n" +
+          "- Aerial Yoga Batch: ₹3,200/month\n\n" +
+          "🧘‍♀️ We recommend bringing your own yoga mat and a bottle of water for comfort & convenience.",
+
+          bangalore: 
+          "💰 Fee Details at Shunyamudra Yoga & Wellness Center, Whitefield, Bangalore:\n\n" +
+          "- Weekday Batch: ₹2,600/month (Exclusive discount for Gopalan Aqua Residents)\n" +
+          "- Meditation Batch: ₹1,500/month\n\n" +
+          "🧘‍♀️ We recommend bringing your own yoga mat and a bottle of water for comfort & convenience."
+        };
+        await sendMessage(phoneNumberId, from, cityFees[session.userCity] || "Invalid city.");
+        await checkToCollectDetails(phoneNumberId, from);
+        session.step = 'post_answer_detail';
       } else if (msg.includes("join")) {
         await sendMessage(phoneNumberId, from, "📝 Register here: https://shunyamudra.com/register");
         await checkToCollectDetails(phoneNumberId, from);
         session.step = 'post_answer_detail';
       } else if (msg.includes("talk")) {
-        await sendMessage(phoneNumberId, from, "📝 Great! Please provide your details in the format:\n\n*Name*: Your Name\n*Email*: your.email@example.com\n*Phone number*: Your Whatsapp Number\n*City*: Your city(optional)\n*Query*: your query(optional)");
-        // await sendRedirectButton(phoneNumberId, from);
-        session.step = 'collect_user_details';
+        await sendMessage(phoneNumberId, from, "📞 Our trainer will call you shortly.");
+        await notifyTeam(phoneNumberId, session, "*Request*: Callback");
+        await sendYesNoButtons(phoneNumberId, from);
+        session.step = 'post_answer';
+      } else if (msg.includes("refer")) {
+        await sendMessage(phoneNumberId, from, "👥 Share the referral's name & number.");
+        session.step = 'collect_user_referral';
       } else if (msg.includes("concern")) {
-        await sendMessage(phoneNumberId, from, "📝 Thank You for reaching out!☺️\nPlease write your concern in detail below.\n\nIf possible, please leave your name and phone number so that we can resolve your concern effectively.");
+        await sendMessage(phoneNumberId, from, "📝 Describe your concern below.");
         session.step = 'collect_user_concern';
       } else if (msg.includes("feedback")) {
-        await sendMessage(phoneNumberId, from, "📝 We value our customers!☺️\nPlease write down your feedback along with your name, phone number and location if possible.");
+        await sendMessage(phoneNumberId, from, "🌟 We’d love your feedback!");
         session.step = 'collect_user_feedback';
       } else {
-        await sendWelcome(phoneNumberId, from); // fallback
+        await sendWelcome(phoneNumberId, from, session.userName);
       }
       break;
 
-    case 'select_class_type':
-      if (msg.includes("regular batch-mumbai")) {
-        await sendMessage(phoneNumberId, from, "🧘‍♀️ *Regular Adult Yoga*: \n\nMorning Batch\n6:45 AM - 7:45 AM\n7:45 AM - 8:45 AM\n8:45 AM - 9:45 AM\n10:30 AM - 11:30 AM\n\nEvening Batch\n6:30 PM - 7:30 PM\n7:30 PM - 8:30 PM\n\n🧘‍♀️ *Weekend Adult Yoga*: \n\nMorning Batch\n7:00 AM - 8:15 AM");
-        await checkToCollectDetails(phoneNumberId, from);
-        session.step = 'post_answer_detail';
-      } else if (msg.includes("regular batch-bangalore")) {
-        await sendMessage(phoneNumberId, from, "🧘‍♀️ *Regular Adult Yoga*: \n\nMorning Batch\n6:30 AM - 7:30 AM\n8:00 AM - 9:00 AM\n\nEvening Batch\n7:00 PM - 8:00 AM");
-        await checkToCollectDetails(phoneNumberId, from);
-        session.step = 'post_answer_detail';
-      } else if (msg.includes("online batch")) {
-        await sendMessage(phoneNumberId, from, "🧘‍♀️ *Online Batch Time*: \n\n9:30 AM - 10:30 AM");
-        await checkToCollectDetails(phoneNumberId, from);
-        session.step = 'post_answer_detail';
-      } else if (msg.includes("aerial")) {
-        await sendMessage(phoneNumberId, from, "🧘‍♀️ *Aerial Batch Time*: \n\n8:45 AM - 9:45 AM on Saturdays and Sundays in Kharghar");
-        await checkToCollectDetails(phoneNumberId, from);
-        session.step = 'post_answer_detail';
-      } else if (msg.includes("meditation")) {
-        await sendMessage(phoneNumberId, from, "🧘‍♀️ *Meditation Batch Time*: \n\n8:00 AM - 9:00 AM on Saturdays in Bangalore");
-        await checkToCollectDetails(phoneNumberId, from);
-        session.step = 'post_answer_detail';
-      } else {
-        await sendMessage(phoneNumberId, from, "Please select a valid class type.");
-        await sendClassTypeOptions(phoneNumberId, from);
-      }
-      break;
-    
-    case 'select_city':
-      if (msg.includes("kharghar")) {
-        await sendMessage(phoneNumberId, from, "💰 Fee Details at Shunyamudra Yoga & Wellness Center, Kharghar, Navi Mumbai:\n\n- Weekday Batch: ~₹3,000~ ₹2,500/month + ₹500 (one-time admission)\n- Weekend Batch: ₹2,000/month + ₹500 (one-time admission)\n- Aerial Yoga Batch: ₹3,200/month\n\n🧘‍♀️ We recommend bringing your own yoga mat and a bottle of water for comfort & convenience.");
-        await checkToCollectDetails(phoneNumberId, from);
-        session.step = 'post_answer_detail';
-      } else if (msg.includes("whitefield")) {
-        await sendMessage(phoneNumberId, from, "💰 Fee Details at Shunyamudra Yoga & Wellness Center:\n\n- Weekday Batch: ₹2,600/month (Exclusive discount for Gopalan Aqua Residents)\n- Meditation Batch: ₹1,500/month\n\n🧘‍♀️ We recommend bringing your own yoga mat and a bottle of water for comfort & convenience.");
-        await checkToCollectDetails(phoneNumberId, from);
-        session.step = 'post_answer_detail';
-      } else if (msg.includes("online class")) {
-        await sendMessage(phoneNumberId, from, "💰 Fee Details at Shunyamudra Yoga & Wellness Center:\n\n- Online Batch: ₹2,000/month\n\n🧘‍♀️ We recommend bringing your own yoga mat and a bottle of water for comfort & convenience.");
-        await checkToCollectDetails(phoneNumberId, from);
-        session.step = 'post_answer_detail';
-      } else {
-        await sendMessage(phoneNumberId, from, "Please select a city.");
-        await sendFeeDetails(phoneNumberId, from);
-      }
-      break;
-
-    case 'collect_user_details':{
-        const query = msgBody.trim();
-
-      if (query) {
-
-        await sendMessage(phoneNumberId, from, `🙏 Thank you so much! We've received your details. Our team will contact you soon.`);
+    case 'collect_user_referral':
+      if (msg.trim()) {
+        await notifyTeam(phoneNumberId, session, `*Referral*: ${msg}`);
+        await sendMessage(phoneNumberId, from, "🙏 Thank you! We’ll contact them soon.");
         await sendYesNoButtons(phoneNumberId, from);
-
-        // Notify the team
-        const teamMessage = `New customer enquiry received:\n\n*Details*: ${query}`;
-        await sendMessage(phoneNumberId, WHATSAPP_NUMBER, teamMessage);
-
         session.step = 'post_answer';
       } else {
-        await sendMessage(phoneNumberId, from, "⚠️ Please provide your details in the correct format:\n\n`*Name*: Your Name\n*Email*: your.email@example.com\n*Phone No*: Your Whatsapp Number\n*City*: Your city(optional)\n*Query*: your query(optional)`");
-        session.step = 'welcome';
+        await sendMessage(phoneNumberId, from, "⚠️ Please provide valid details.");
       }
-    }
       break;
 
     case 'collect_user_concern':
-        const concern = msgBody.trim();
-
-        if(concern){
-        await sendMessage(phoneNumberId, from, `🙏 Thank you! We've noted your concern and our team is working on it to find a resolusion.\n\nIn the meantime, if you want to discuss directly with our trainer please call on 7777016109 between 12 PM to 4 PM.`);
+      if (msg.trim()) {
+        await notifyTeam(phoneNumberId, session, `*Concern*: ${msg}`);
+        await sendMessage(phoneNumberId, from, "🙏 We’ve noted your concern. Call us at 7777016109 (12 PM - 4 PM) for urgent queries.");
         await sendYesNoButtons(phoneNumberId, from);
-
-        // Notify the team
-        const concernMessage = `New customer concern has been raised:\n\n${concern}`;
-        await sendMessage(phoneNumberId, WHATSAPP_NUMBER, concernMessage);
-
         session.step = 'post_answer';
-        }else {
-        await sendMessage(phoneNumberId, from, "⚠️ Please provide correct concern");
-        session.step = 'welcome';
+      } else {
+        await sendMessage(phoneNumberId, from, "⚠️ Please describe your concern.");
       }
-    break;
+      break;
 
-    case 'collect_user_feedback':{
-      const feedback = msgBody.trim();
-
-      if(feedback){
-        await sendMessage(phoneNumberId, from, "🙏 Thank you for taking the time to share your feedback with us.\n\nWe truly value your input and will use it to improve your experience at *Shunyamudra Yoga & Wellness Center*.");
+    case 'collect_user_feedback':
+      if (msg.trim()) {
+        await notifyTeam(phoneNumberId, session, `*Feedback*: ${msg}`);
+        await sendMessage(phoneNumberId, from, "🌟 Thank you for your feedback!");
         await sendYesNoButtons(phoneNumberId, from);
-
-        // Notify the team
-        const feedbackMessage = `New customer feedback received:\n\n*Feedback*: ${feedback}`;
-        await sendMessage(phoneNumberId, WHATSAPP_NUMBER, feedbackMessage);
-
         session.step = 'post_answer';
-      }else {
-        await sendMessage(phoneNumberId, from, "⚠️ Please provide correct feedback");
-        session.step = 'welcome';
+      } else {
+        await sendMessage(phoneNumberId, from, "⚠️ Please provide valid feedback.");
       }
-    }
       break;
 
     case 'post_answer':
       if (msg === 'yes') {
-        await sendWelcome(phoneNumberId, from);
-        session.step = 'main_menu';
+        if (session.userStatus === 'new client') {
+          await sendNewWelcome(phoneNumberId, from);
+          session.step = 'main_menu';
+        } else {
+          await sendExistingWelcome(phoneNumberId, from);
+          session.step = 'main_menu';
+        }
       } else if (msg === 'no') {
-        await sendMessage(phoneNumberId, from, "Your wellness matters to us. Thanks for getting in touch with Shunyamudra Yoga & Wellness Center.");
+        await sendMessage(phoneNumberId, from, "🙏 Thank you for connecting with us!");
         sessions.delete(from);
       } else {
-        await sendMessage(phoneNumberId, from, "Would you like more assistance?");
         await sendYesNoButtons(phoneNumberId, from);
       }
       break;
-    
+
     case 'post_answer_detail':
       if (msg === 'yes') {
-        await sendMessage(phoneNumberId, from, "📝 Great! Please provide your details in the format:\n\n*Name*: Your Name\n*Email*: your.email@example.com\n*Phone number*: Your Whatsapp Number\n*City*: Your city(optional)\n\n*Query*: your query(optional)");
-        session.step = 'collect_user_details';
+        session.step = 'trainer_connect';
       } else {
         await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
@@ -234,26 +307,20 @@ async function handleMessage(phoneNumberId, from, msgBody) {
       break;
 
     default:
-      await sendWelcome(phoneNumberId, from);
+      await sendWelcome(phoneNumberId, from, session.userName);
       session.step = 'main_menu';
-      break;
   }
 
   sessions.set(from, session);
 }
 
-// ==================== WHATSAPP API MESSAGE HELPERS ====================
+// ==================== WHATSAPP API HELPERS ====================
 async function sendWhatsAppMessage(phoneNumberId, payload) {
   try {
     await axios.post(
       `https://graph.facebook.com/v18.0/${phoneNumberId}/messages`,
       { messaging_product: 'whatsapp', ...payload },
-      {
-        headers: {
-          Authorization: `Bearer ${WHATSAPP_TOKEN}`,
-          'Content-Type': 'application/json'
-        }
-      }
+      { headers: { Authorization: `Bearer ${WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' } }
     );
   } catch (err) {
     console.error("❌ Failed to send message:", err.response?.data || err.message);
@@ -264,15 +331,6 @@ async function sendMessage(phoneNumberId, to, text) {
   await sendWhatsAppMessage(phoneNumberId, { to, text: { body: text }, type: 'text' });
 }
 
-function extractField(msgBody, lines, patterns, fallbackIndex) {
-  for (const pattern of patterns) {
-    const match = msgBody.match(pattern);
-    if (match && match[1]) return match[1].trim();
-  }
-  return lines[fallbackIndex]?.trim() || '';
-}
-
-
 async function sendYesNoButtons(phoneNumberId, to) {
   await sendWhatsAppMessage(phoneNumberId, {
     to,
@@ -282,8 +340,25 @@ async function sendYesNoButtons(phoneNumberId, to) {
       body: { text: "Do you have more questions?" },
       action: {
         buttons: [
-          { type: 'reply', reply: { id: 'yes_more_questions', title: 'Yes' } },
-          { type: 'reply', reply: { id: 'no_more_questions', title: 'No' } }
+          { type: 'reply', reply: { id: 'yes', title: 'Yes' } },
+          { type: 'reply', reply: { id: 'no', title: 'No' } }
+        ]
+      }
+    }
+  });
+}
+
+async function checkCustomerStatus(phoneNumberId, to) {
+  await sendWhatsAppMessage(phoneNumberId, {
+    to,
+    type: 'interactive',
+    interactive: {
+      type: 'button',
+      body: { text: "Are you a new or existing client?" },
+      action: {
+        buttons: [
+          { type: 'reply', reply: { id: 'new', title: '🆕 New Client' } },
+          { type: 'reply', reply: { id: 'existing', title: '🧘‍♀️ Existing Client' } }
         ]
       }
     }
@@ -296,11 +371,28 @@ async function checkToCollectDetails(phoneNumberId, to) {
     type: 'interactive',
     interactive: {
       type: 'button',
-      body: { text: "Shall we book a demo class for you to experience our sessions firsthand?" },
+      body: { text: "Want to book a demo class?" },
       action: {
         buttons: [
-          { type: 'reply', reply: { id: 'yes_more_questions', title: 'Yes' } },
-          { type: 'reply', reply: { id: 'no_more_questions', title: 'No' } }
+          { type: 'reply', reply: { id: 'yes', title: 'Yes' } },
+          { type: 'reply', reply: { id: 'no', title: 'No' } }
+        ]
+      }
+    }
+  });
+}
+
+async function sendClassMode(phoneNumberId, to) {
+  await sendWhatsAppMessage(phoneNumberId, {
+    to,
+    type: 'interactive',
+    interactive: {
+      type: 'button',
+      body: { text: "Choose class mode:" },
+      action: {
+        buttons: [
+          { type: 'reply', reply: { id: 'studio', title: 'In Studio' } },
+          { type: 'reply', reply: { id: 'personal', title: 'Personal Class' } }
         ]
       }
     }
@@ -323,37 +415,45 @@ async function sendListMessage(phoneNumberId, to, bodyText, title, options) {
   });
 }
 
-// ==================== BOT MENUS ====================
-async function sendWelcome(phoneNumberId, to) {
-  await sendListMessage(phoneNumberId, to, "🙏 ✨ Welcome to Shunyamudra Yoga & Wellness Center!\n\nLet’s begin your journey. Please tap one of the options below:", "Main Menu", [
-    { id: "class_timings", title: "Class Timings?" },
-    { id: "fee_structure", title: "Fee Structure?" },
-    { id: "how_to_join", title: "How can I Join?" },
-    { id: "talk_to_person", title: "Talk to our Trainer" },
-    { id: "raise_concern", title: "Raise a concern" },
-    { id: "feedback", title: "Provide a feedback" }
-  ]);
+// ==================== MENUS ====================
+async function sendWelcome(phoneNumberId, to, userName = '') {
+  await sendListMessage(phoneNumberId, to,
+    `🙏 Welcome${userName ? `, ${userName}` : ''}! Choose your city:`,
+    "City",
+    [
+      { id: "mumbai", title: "Kharghar, Mumbai" },
+      { id: "bangalore", title: "Whitefield, Bangalore" },
+      { id: "others", title: "Other Location" }
+    ]
+  );
 }
 
-async function sendClassTypeOptions(phoneNumberId, to) {
-  await sendListMessage(phoneNumberId, to, "🧘 We offer \nRegular offline and online batches\n- Aerial Yoga\n- Meditation", "Choose a Class Type", [
-    { id: "class_regular_mum", title: "Regular Batch-Mumbai" },
-    { id: "class_aerial", title: "Aerial Batch-Mumbai" },
-    { id: "class_regular_blr", title: "Regular Batch-Bangalore" },
-    { id: "class_meditation", title: "Meditation-Bangalore" },
-    { id: "class_online", title: "Online Batch" }
-  ]);
+async function sendNewWelcome(phoneNumberId, to) {
+  await sendListMessage(phoneNumberId, to,
+    "What would you like to know?",
+    "Main Menu",
+    [
+      { id: "class_timings", title: "Class Timings" },
+      { id: "fee_structure", title: "Fee Structure" },
+      { id: "how_to_join", title: "How to Join" },
+      { id: "talk_to_person", title: "Talk to Trainer" }
+    ]
+  );
 }
 
-async function sendFeeDetails(phoneNumberId, to) {
-  await sendListMessage(phoneNumberId, to, "🧘 We are located in Kharghar, Navi Mumbai and Whitefield, Bangalore", "Choose a Location", [
-    { id: "kharghar", title: "Kharghar, Navi Mumbai" },
-    { id: "whitefield", title: "Whitefield, Bangalore" },
-    { id: "online", title: "Online Class" }
-  ]);
+async function sendExistingWelcome(phoneNumberId, to) {
+  await sendListMessage(phoneNumberId, to,
+    "How can we help?",
+    "Main Menu",
+    [
+      { id: "refer", title: "Refer a Friend" },
+      { id: "concern", title: "Raise Concern" },
+      { id: "feedback", title: "Give Feedback" }
+    ]
+  );
 }
 
-// ==================== START SERVER ====================
+// ==================== SERVER START ====================
 app.listen(PORT, () => {
-  console.log(`🚀 Server is running on port ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
