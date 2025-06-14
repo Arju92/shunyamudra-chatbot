@@ -369,6 +369,26 @@ async function sendWhatsAppMessage(phoneNumberId, payload) {
   }
 }
 
+async function sendTemplateMessage(phoneNumberId, to, templateName, parameters = []) {
+  const payload = {
+    to,
+    type: "template",
+    template: {
+      name: templateName,
+      language: { code: "en_US" },
+      components: [
+        {
+          type: "body",
+          parameters: parameters.map(text => ({ type: "text", text }))
+        }
+      ]
+    }
+  };
+
+  await sendWhatsAppMessage(phoneNumberId, payload);
+}
+
+
 async function sendMessage(phoneNumberId, to, text) {
   await sendWhatsAppMessage(phoneNumberId, { to, text: { body: text }, type: 'text' });
 }
