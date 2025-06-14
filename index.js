@@ -375,7 +375,7 @@ async function sendTemplateMessage(phoneNumberId, to, templateName, parameters =
     type: "template",
     template: {
       name: templateName,
-      language: { code: "en_US" },
+      language: { code: "en" },
       components: [
         {
           type: "body",
