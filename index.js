@@ -36,7 +36,7 @@ app.post('/webhook', async (req, res) => {
       console.error("❌ Missing Phone Number ID");
       return res.sendStatus(400);
     }else{
-      console.log("Your number is: "+ phoneNumberId)
+      console.log("Your number id is: " + phoneNumberId + " and number is: " + from);
     }
 
     const msgBody = message?.type === 'text'
@@ -111,6 +111,12 @@ function clearAllTimeouts(session) {
 }
 
 async function notifyTeam(phoneNumberId, session, enquiry, extraInfo = '') {
+  console.log(phoneNumberId,
+    WHATSAPP_NUMBER,
+    'customer_details', [
+      enquiry, session.userName || "N/A", session.userPhoneNumber || "N/A", session.userEmail || "N/A", 
+      session.userCity || "N/A", extraInfo  
+    ]);
   await sendTemplateMessage(
     phoneNumberId,
     WHATSAPP_NUMBER,
