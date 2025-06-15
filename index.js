@@ -271,7 +271,10 @@ async function handleMessage(phoneNumberId, from, msgBody) {
         await checkToCollectDetails(phoneNumberId, from);
         session.step = 'post_answer_detail';
       } else if (msg.includes("talk")) {
-        session.step = 'trainer_connect';
+        await sendMessage(phoneNumberId, from, "📞 Our trainer will call you shortly.");
+        await notifyTeam(phoneNumberId, session, "Demo Enquiry", "*Request*: Callback");
+        await sendYesNoButtons(phoneNumberId, from);
+        session.step = 'post_answer';
       } else if (msg.includes("refer")) {
         await sendMessage(phoneNumberId, from, "👥 Share the referral's name & number.");
         session.step = 'collect_user_referral';
@@ -319,13 +322,6 @@ async function handleMessage(phoneNumberId, from, msgBody) {
       }
       break;
 
-    case 'trainer_connect':
-        await sendMessage(phoneNumberId, from, "📞 Our trainer will call you shortly.");
-        await notifyTeam(phoneNumberId, session, "Demo Enquiry", "*Request*: Callback");
-        await sendYesNoButtons(phoneNumberId, from);
-        session.step = 'post_answer';
-      break;
-
     case 'post_answer':
       if (msg === 'yes') {
         if (session.userStatus === 'new client') {
@@ -345,7 +341,10 @@ async function handleMessage(phoneNumberId, from, msgBody) {
 
     case 'post_answer_detail':
       if (msg === 'yes') {
-        session.step = 'trainer_connect';
+        await sendMessage(phoneNumberId, from, "📞 Our trainer will call you shortly.");
+        await notifyTeam(phoneNumberId, session, "Demo Enquiry", "*Request*: Callback");
+        await sendYesNoButtons(phoneNumberId, from);
+        session.step = 'post_answer';
       } else {
         await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
