@@ -132,7 +132,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
 
   switch (session.step) {
     case 'welcome':
-      if (["hi", "hello", "hey", "namaste"].includes(msg)) {
+      if (["hi", "hello", "hey", "namaste", "namasthe"].includes(msg)) {
         await sendMessage(phoneNumberId, from, 
           "🙏 Welcome! Please share your *Name* and *Email*.\n\nExample:\n*Name*: John Doe\n*Email*: john@example.com");
         session.step = 'collect_initial_details';
