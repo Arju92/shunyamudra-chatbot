@@ -101,7 +101,7 @@ function clearSessionTimeouts(session) {
   });
 }
 
-function resetTimeout(phoneNumberId, from) {
+function resetTimeout(from) {
   let session = sessions.get(from) || {};
   clearSessionTimeouts(session);
 
@@ -174,7 +174,7 @@ function normalizeInput(msg) {
 
 // ==================== MESSAGE FLOW LOGIC ====================
 async function handleMessage(phoneNumberId, from, msgBody) {
-  resetTimeout(phoneNumberId, from);
+  resetTimeout(from);
 
   const session = sessions.get(from) || { step: STATES.WELCOME, phoneNumberId, from };
   const msg = normalizeInput(msgBody);
