@@ -35,6 +35,8 @@ app.post('/webhook', async (req, res) => {
     if (!phoneNumberId) {
       console.error("❌ Missing Phone Number ID");
       return res.sendStatus(400);
+    }else{
+      console.log("Your number is: "+ phoneNumberId)
     }
 
     const msgBody = message?.type === 'text'
