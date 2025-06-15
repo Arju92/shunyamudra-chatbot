@@ -320,14 +320,10 @@ async function handleMessage(phoneNumberId, from, msgBody) {
       break;
 
     case 'trainer_connect':
-      if (msg.trim()) {
         await sendMessage(phoneNumberId, from, "📞 Our trainer will call you shortly.");
         await notifyTeam(phoneNumberId, session, "Demo Enquiry", "*Request*: Callback");
         await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
-      } else {
-        await sendMessage(phoneNumberId, from, "⚠️ Please provide valid details.");
-      }
       break;
 
     case 'post_answer':
