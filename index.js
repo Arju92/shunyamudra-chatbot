@@ -271,10 +271,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
         await checkToCollectDetails(phoneNumberId, from);
         session.step = 'post_answer_detail';
       } else if (msg.includes("talk")) {
-        await sendMessage(phoneNumberId, from, "📞 Our trainer will call you shortly.");
-        await notifyTeam(phoneNumberId, session, "Enquiry", "*Request*: Callback");
-        await sendYesNoButtons(phoneNumberId, from);
-        session.step = 'post_answer';
+        session.step = 'trainer_connect';
       } else if (msg.includes("refer")) {
         await sendMessage(phoneNumberId, from, "👥 Share the referral's name & number.");
         session.step = 'collect_user_referral';
@@ -319,6 +316,17 @@ async function handleMessage(phoneNumberId, from, msgBody) {
         session.step = 'post_answer';
       } else {
         await sendMessage(phoneNumberId, from, "⚠️ Please provide valid feedback.");
+      }
+      break;
+
+    case 'trainer_connect':
+      if (msg.trim()) {
+        await sendMessage(phoneNumberId, from, "📞 Our trainer will call you shortly.");
+        await notifyTeam(phoneNumberId, session, "Demo Enquiry", "*Request*: Callback");
+        await sendYesNoButtons(phoneNumberId, from);
+        session.step = 'post_answer';
+      } else {
+        await sendMessage(phoneNumberId, from, "⚠️ Please provide valid details.");
       }
       break;
 
