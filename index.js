@@ -35,8 +35,6 @@ app.post('/webhook', async (req, res) => {
     if (!phoneNumberId) {
       console.error("❌ Missing Phone Number ID");
       return res.sendStatus(400);
-    }else{
-      console.log("Your number id is: " + phoneNumberId + " and number is: " + from);
     }
 
     const msgBody = message?.type === 'text'
@@ -120,6 +118,7 @@ async function notifyTeam(phoneNumberId, session, enquiry, extraInfo = '') {
                             "📝 Additional Info:\n"
                             "${extraInfo}"`;
   await sendMessage(phoneNumberId, WHATSAPP_NUMBER, teamMessage);
+  console.log(phoneNumberId, WHATSAPP_NUMBER, teamMessage);
 }
 
 // ==================== MESSAGE FLOW LOGIC ====================
@@ -197,7 +196,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
         await sendNewWelcome(phoneNumberId, from);
         session.step = 'main_menu';
       } else if (msg.includes("personal")) {
-        const className = "Personal Class";
+        const className = "Personal Class Enquiry";
         await sendMessage(phoneNumberId, from, "🙏 Our team will contact you shortly for personal sessions.");
         await notifyTeam(phoneNumberId, session, className, `*Request*: ${className}`);
         await sendYesNoButtons(phoneNumberId, from);
