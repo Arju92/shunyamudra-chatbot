@@ -80,7 +80,7 @@ function extractCityKey(userCity) {
   const lowerCity = userCity.toLowerCase();
   if (lowerCity.includes("mumbai")) return "mumbai";
   if (lowerCity.includes("bangalore")) return "bangalore";
-  return "others";
+  if (lowerCity.includes("other")) return "others";
 }
 
 function resetTimeout(phoneNumberId, from) {
@@ -111,25 +111,15 @@ function clearAllTimeouts(session) {
 }
 
 async function notifyTeam(phoneNumberId, session, enquiry, extraInfo = '') {
-  console.log(phoneNumberId,
-    WHATSAPP_NUMBER,
-    'customer_details', [
-      enquiry, session.userName || "N/A", session.userPhoneNumber || "N/A", session.userEmail || "N/A", 
-      session.userCity || "N/A", extraInfo  
-    ]);
-  await sendTemplateMessage(
-    phoneNumberId,
-    WHATSAPP_NUMBER,
-    'customer_details', // Template name in Meta
-    [
-      enquiry,                      // {{1}} e.g. "Feedback", "Referral"
-      session.userName || "N/A",   // {{2}}
-      session.userPhoneNumber || "N/A", // {{3}}
-      session.userEmail || "N/A",  // {{4}}
-      session.userCity || "N/A",   // {{5}}
-      extraInfo                    // {{6}} e.g. "*Feedback*: Really enjoyed the class!"
-    ]
-  );
+  const teamMessage =   `"📩 You’ve received a new ${enquiry}!\n\n"+
+                            "Here are the details:\n\n"+
+                            "👤 Name: ${session.userName}"+
+                            "📱 Phone: ${session.userPhoneNumber}"+
+                            "📧 Email: ${session.userEmail}"+
+                            "📍 City: ${session.userCity}\n\n"+
+                            "📝 Additional Info:\n"
+                            "${extraInfo}"`;
+  await sendMessage(phoneNumberId, WHATSAPP_NUMBER, teamMessage);
 }
 
 // ==================== MESSAGE FLOW LOGIC ====================
@@ -192,7 +182,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
             "🧘‍♀️ We’re currently in Mumbai/Bangalore. Join our online batch:\n\n*Timings*: Mon/Tue/Thu/Fri, 9:30 AM - 10:30 AM");
           await checkToCollectDetails(phoneNumberId, from);
           session.step = 'post_answer_detail';
-        } else {
+        } else if (session.userStatus === 'existing client') {
           await sendExistingWelcome(phoneNumberId, from);
           session.step = 'main_menu';
         }
@@ -378,25 +368,6 @@ async function sendWhatsAppMessage(phoneNumberId, payload) {
   } catch (err) {
     console.error("❌ Failed to send message:", err.response?.data || err.message);
   }
-}
-
-async function sendTemplateMessage(phoneNumberId, to, templateName, parameters = []) {
-  const payload = {
-    to,
-    type: "template",
-    template: {
-      name: templateName,
-      language: { code: "en" },
-      components: [
-        {
-          type: "body",
-          parameters: parameters.map(text => ({ type: "text", text }))
-        }
-      ]
-    }
-  };
-
-  await sendWhatsAppMessage(phoneNumberId, payload);
 }
 
 
