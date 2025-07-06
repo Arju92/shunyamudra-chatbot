@@ -109,9 +109,8 @@ function clearAllTimeouts(session) {
 }
 
 async function notifyTeam(phoneNumberId, session, enquiry, extraInfo = '') {
-  await sendMessage(phoneNumberId, WHATSAPP_NUMBER, session, enquiry, extraInfo);
+  await sendTeamMessage(phoneNumberId, WHATSAPP_NUMBER, session, enquiry, extraInfo);
 }
-
 
 // ==================== MESSAGE FLOW LOGIC ====================
 async function handleMessage(phoneNumberId, from, msgBody) {
@@ -362,7 +361,11 @@ async function sendWhatsAppMessage(phoneNumberId, payload) {
 }
 
 
-async function sendMessage(phoneNumberId, to, session, enquiry, extraInfo = '') {
+async function sendMessage(phoneNumberId, to, text) {
+  await sendWhatsAppMessage(phoneNumberId, { to, text: { body: text }, type: 'text' });
+}
+
+async function sendTeamMessage(phoneNumberId, to, session, enquiry, extraInfo = '') {
   await sendWhatsAppMessage(phoneNumberId, {
     to,
     type: 'template',
@@ -385,7 +388,6 @@ async function sendMessage(phoneNumberId, to, session, enquiry, extraInfo = '') 
     }
   });
 }
-
 
 async function sendYesNoButtons(phoneNumberId, to) {
   await sendWhatsAppMessage(phoneNumberId, {
