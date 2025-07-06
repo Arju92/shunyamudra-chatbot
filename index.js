@@ -124,12 +124,22 @@ async function notifyTeam(phoneNumberId, session, enquiry, extraInfo = '') {
 // ==================== MESSAGE FLOW LOGIC ====================
 async function handleMessage(phoneNumberId, from, msgBody) {
   resetTimeout(from);
-  const session = sessions.get(from) || { step: 'welcome', phoneNumberId, from };
   const msg = msgBody.toLowerCase().replace(/[?]/g, '').trim();
+  const isGreeting = ["hi", "hello", "hey", "namaste", "namasthe"].includes(msg);
+
+  let session = sessions.get(from);
+
+  // ✅ If there's no session OR user sends greeting → reset session
+  if (!session || isGreeting) {
+    if (session) clearAllTimeouts(session); // clear old timers
+    session = { step: 'welcome', phoneNumberId, from };
+    sessions.set(from, session);
+    resetTimeout(phoneNumberId, from);
+  }
 
   switch (session.step) {
     case 'welcome':
-      if (["hi", "hello", "hey", "namaste", "namasthe"].includes(msg)) {
+      if (isGreeting) {
         await sendMessage(phoneNumberId, from, 
           "🙏 Welcome! Please share your *Name* and *Email*.\n\nExample:\n*Name*: John Doe\n*Email*: john@example.com");
         session.step = 'collect_initial_details';
@@ -197,7 +207,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
         session.step = 'main_menu';
       } else if (msg.includes("personal")) {
         const className = "Personal Class Enquiry";
-        await sendMessage(phoneNumberId, from, "🙏 Our team will contact you shortly for personal sessions.");
+        await sendMessage(phoneNumberId, from, "🙏Thank You! Our team will contact you shortly for personal sessions.");
         await notifyTeam(phoneNumberId, session, className, `*Request*:${className}`);
         await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
@@ -273,13 +283,13 @@ async function handleMessage(phoneNumberId, from, msgBody) {
         await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
       } else if (msg.includes("refer")) {
-        await sendMessage(phoneNumberId, from, "👥 Share the referral's name & number.");
+        await sendMessage(phoneNumberId, from, "👥Thank You for your reference. Share your referral's name & number.");
         session.step = 'collect_user_referral';
       } else if (msg.includes("concern")) {
-        await sendMessage(phoneNumberId, from, "📝 Describe your concern below.");
+        await sendMessage(phoneNumberId, from, "📝We are here for you. Please describe your concern below.");
         session.step = 'collect_user_concern';
       } else if (msg.includes("feedback")) {
-        await sendMessage(phoneNumberId, from, "🌟 We’d love your feedback!");
+        await sendMessage(phoneNumberId, from, "🌟 We’d love your feedback! Please write down your review about us.");
         session.step = 'collect_user_feedback';
       } else {
         await sendSelectCity(phoneNumberId, from, session.userName);
@@ -290,7 +300,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
       if (msg.trim()) {
         const formattedMsg = formatExtraInfo(msg);
         await notifyTeam(phoneNumberId, session, "Referral", `*Referral*: ${formattedMsg}`);
-        await sendMessage(phoneNumberId, from, "🙏 Thank you! We’ll contact them soon.");
+        await sendMessage(phoneNumberId, from, "🙏 Thank you! Our team will contact them soon.");
         await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
       } else {
@@ -302,7 +312,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
       if (msg.trim()) {
         const formattedMsg = formatExtraInfo(msg);
         await notifyTeam(phoneNumberId, session, "Concern", `*Concern*: ${formattedMsg}`);
-        await sendMessage(phoneNumberId, from, "🙏 We’ve noted your concern. Call us at 7777016109 (12 PM - 4 PM) for urgent queries.");
+        await sendMessage(phoneNumberId, from, "🙏 We’ve noted your concern. Our team is working to resolve it. In the meantime, you can call us directly at 7777016109 (12 PM - 4 PM) for urgent queries.");
         await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
       } else {
@@ -314,7 +324,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
       if (msg.trim()) {
         const formattedMsg = formatExtraInfo(msg);
         await notifyTeam(phoneNumberId, session, "Feedback", `*Feedback*: ${formattedMsg}`);
-        await sendMessage(phoneNumberId, from, "🌟 Thank you for your feedback!");
+        await sendMessage(phoneNumberId, from, "🌟 Thank you for your feedback! It means a lot to us and helps us grow stronger.");
         await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
       } else {
@@ -332,7 +342,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
           session.step = 'main_menu';
         }
       } else if (msg === 'no') {
-        await sendMessage(phoneNumberId, from, "🙏 Thank you for connecting with us!");
+        await sendMessage(phoneNumberId, from, "🙏 Thank you for connecting with us! To restart the chat please send a Hi anytime.");
         sessions.delete(from);
       } else {
         await sendYesNoButtons(phoneNumberId, from);
