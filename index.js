@@ -373,13 +373,13 @@ async function sendMessage(phoneNumberId, to, session, enquiry, extraInfo = '') 
         {
           type: 'body',
           parameters: [
-            { type: 'text', text: enquiry },
-            { type: 'text', text: session.userName },
-            { type: 'text', text: session.userPhoneNumber },
-            { type: 'text', text: session.userEmail },
-            { type: 'text', text: session.userCity },
-            { type: 'text', text: extraInfo }
-          ]
+              { type: 'text', text: enquiry || 'N/A' },
+              { type: 'text', text: session.userName || 'N/A' },
+              { type: 'text', text: session.userPhoneNumber || 'N/A' },
+              { type: 'text', text: session.userEmail || 'N/A' },
+              { type: 'text', text: session.userCity || 'N/A' },
+              { type: 'text', text: extraInfo || 'None' }
+            ]
         }
       ]
     }
