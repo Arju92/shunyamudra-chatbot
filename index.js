@@ -109,17 +109,9 @@ function clearAllTimeouts(session) {
 }
 
 async function notifyTeam(phoneNumberId, session, enquiry, extraInfo = '') {
-  const teamMessage =   `"📩 You’ve received a new ${enquiry}!\n\n"+
-                            "Here are the details:\n\n"+
-                            "👤 Name: ${session.userName}"+
-                            "📱 Phone: ${session.userPhoneNumber}"+
-                            "📧 Email: ${session.userEmail}"+
-                            "📍 City: ${session.userCity}\n\n"+
-                            "📝 Additional Info:\n"
-                            "${extraInfo}"`;
-  await sendMessage(phoneNumberId, WHATSAPP_NUMBER, teamMessage);
-  console.log(phoneNumberId, WHATSAPP_NUMBER, teamMessage);
+  await sendMessage(phoneNumberId, WHATSAPP_NUMBER, session, enquiry, extraInfo);
 }
+
 
 // ==================== MESSAGE FLOW LOGIC ====================
 async function handleMessage(phoneNumberId, from, msgBody) {
@@ -370,9 +362,30 @@ async function sendWhatsAppMessage(phoneNumberId, payload) {
 }
 
 
-async function sendMessage(phoneNumberId, to, text) {
-  await sendWhatsAppMessage(phoneNumberId, { to, text: { body: text }, type: 'text' });
+async function sendMessage(phoneNumberId, to, session, enquiry, extraInfo = '') {
+  await sendWhatsAppMessage(phoneNumberId, {
+    to,
+    type: 'template',
+    template: {
+      name: 'your_template_name', // all lowercase, underscores instead of spaces
+      language: { code: 'en_US' },
+      components: [
+        {
+          type: 'body',
+          parameters: [
+            { type: 'text', text: enquiry },
+            { type: 'text', text: session.userName },
+            { type: 'text', text: session.userPhoneNumber },
+            { type: 'text', text: session.userEmail },
+            { type: 'text', text: session.userCity },
+            { type: 'text', text: extraInfo }
+          ]
+        }
+      ]
+    }
+  });
 }
+
 
 async function sendYesNoButtons(phoneNumberId, to) {
   await sendWhatsAppMessage(phoneNumberId, {
