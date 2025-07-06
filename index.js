@@ -185,7 +185,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
           await sendExistingWelcome(phoneNumberId, from);
           session.step = 'main_menu';
         }
-      } else if (msg.includes("others")) {
+      } else if (msg.includes("other")) {
         if (session.userStatus === 'new client') {
           await sendMessage(phoneNumberId, from, 
             "🧘‍♀️ We’re currently in Mumbai/Bangalore. Join our online batch:\n\n*Timings*: Mon/Tue/Thu/Fri, 9:30 AM - 10:30 AM");
