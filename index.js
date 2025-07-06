@@ -367,7 +367,7 @@ async function sendMessage(phoneNumberId, to, session, enquiry, extraInfo = '') 
     to,
     type: 'template',
     template: {
-      name: 'your_template_name', // all lowercase, underscores instead of spaces
+      name: 'team_notify', // all lowercase, underscores instead of spaces
       language: { code: 'en_US' },
       components: [
         {
