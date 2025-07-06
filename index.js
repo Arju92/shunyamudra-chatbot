@@ -108,7 +108,16 @@ function clearAllTimeouts(session) {
   ['timeout', 'followUp1', 'followUp2', 'finalTimeout'].forEach(t => clearTimeout(session[t]));
 }
 
+function formatExtraInfo(text) {
+  if (!text) return 'N/A';
+  return text
+    .replace(/[\s\n\r\t]+/g, '_')  // replace all space-like characters with underscores
+    .replace(/_{5,}/g, '____')     // prevent excessive underscores (e.g., 10+ becomes 4)
+    .trim();
+}
+
 async function notifyTeam(phoneNumberId, session, enquiry, extraInfo = '') {
+  console.log(phoneNumberId, WHATSAPP_NUMBER, session, enquiry, extraInfo);
   await sendTeamMessage(phoneNumberId, WHATSAPP_NUMBER, session, enquiry, extraInfo);
 }
 
@@ -189,7 +198,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
       } else if (msg.includes("personal")) {
         const className = "Personal Class Enquiry";
         await sendMessage(phoneNumberId, from, "🙏 Our team will contact you shortly for personal sessions.");
-        await notifyTeam(phoneNumberId, session, className, `*Request*: ${className}`);
+        await notifyTeam(phoneNumberId, session, className, `*Request*:${className}`);
         await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
       } else {
@@ -260,7 +269,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
         session.step = 'post_answer_detail';
       } else if (msg.includes("talk")) {
         await sendMessage(phoneNumberId, from, "📞 Our trainer will call you shortly.");
-        await notifyTeam(phoneNumberId, session, "Demo Enquiry", "*Request*: Callback");
+        await notifyTeam(phoneNumberId, session, "Demo Enquiry", "*Request*:Callback");
         await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
       } else if (msg.includes("refer")) {
@@ -279,7 +288,8 @@ async function handleMessage(phoneNumberId, from, msgBody) {
 
     case 'collect_user_referral':
       if (msg.trim()) {
-        await notifyTeam(phoneNumberId, session, "Referral", `*Referral*: ${msg}`);
+        const formattedMsg = formatExtraInfo(msg);
+        await notifyTeam(phoneNumberId, session, "Referral", `*Referral*: ${formattedMsg}`);
         await sendMessage(phoneNumberId, from, "🙏 Thank you! We’ll contact them soon.");
         await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
@@ -290,7 +300,8 @@ async function handleMessage(phoneNumberId, from, msgBody) {
 
     case 'collect_user_concern':
       if (msg.trim()) {
-        await notifyTeam(phoneNumberId, session, "Concern", `*Concern*: ${msg}`);
+        const formattedMsg = formatExtraInfo(msg);
+        await notifyTeam(phoneNumberId, session, "Concern", `*Concern*: ${formattedMsg}`);
         await sendMessage(phoneNumberId, from, "🙏 We’ve noted your concern. Call us at 7777016109 (12 PM - 4 PM) for urgent queries.");
         await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
@@ -301,7 +312,8 @@ async function handleMessage(phoneNumberId, from, msgBody) {
 
     case 'collect_user_feedback':
       if (msg.trim()) {
-        await notifyTeam(phoneNumberId, session, "Feedback", `*Feedback*: ${msg}`);
+        const formattedMsg = formatExtraInfo(msg);
+        await notifyTeam(phoneNumberId, session, "Feedback", `*Feedback*: ${formattedMsg}`);
         await sendMessage(phoneNumberId, from, "🌟 Thank you for your feedback!");
         await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
@@ -330,7 +342,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
     case 'post_answer_detail':
       if (msg === 'yes') {
         await sendMessage(phoneNumberId, from, "📞 Our trainer will call you shortly.");
-        await notifyTeam(phoneNumberId, session, "Demo Enquiry", "*Request*: Callback");
+        await notifyTeam(phoneNumberId, session, "Demo Enquiry", "*Request*:Callback");
         await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
       } else {
