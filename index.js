@@ -207,10 +207,8 @@ async function handleMessage(phoneNumberId, from, msgBody) {
         session.step = 'main_menu';
       } else if (msg.includes("personal")) {
         const className = "Personal Class Enquiry";
-        await sendMessage(phoneNumberId, from, "🙏Thank You! Our team will contact you shortly for personal sessions.");
+        await sendMessage(phoneNumberId, from, "🙏Thank You! Our team will contact you shortly for personal sessions.\n\nTo restart the chat please send a Hi anytime.");
         await notifyTeam(phoneNumberId, session, className, `*Request*:${className}`);
-        await sendYesNoButtons(phoneNumberId, from);
-        session.step = 'post_answer';
       } else {
         await sendMessage(phoneNumberId, from, "Please select a class mode.");
         await sendClassMode(phoneNumberId, from);
@@ -341,7 +339,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
           session.step = 'main_menu';
         }
       } else if (msg === 'no') {
-        await sendMessage(phoneNumberId, from, "🙏 Thank you for connecting with us! To restart the chat please send a Hi anytime.");
+        await sendMessage(phoneNumberId, from, "🙏 Thank you for connecting with us! \n\nTo restart the chat please send a Hi anytime.");
         sessions.delete(from);
       } else {
         await sendYesNoButtons(phoneNumberId, from);
