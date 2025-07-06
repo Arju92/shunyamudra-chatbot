@@ -238,7 +238,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
             "Evening Batch\n7:00 PM - 8:00 PM\n\n\n" +
             "🧘‍♀️ *Meditation Batch*: \n\nMorning Batch\nSaturday only\n8:00 AM - 9:00 AM",
 
-        other:
+        others:
             "🧘‍♀️ *Batch times for Online class*: \n" +
             "Monday, Tuesday, Thursday, Friday\n" + 
             "9:30 AM - 10:30 AM"
@@ -263,7 +263,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
           "- Meditation Batch: ₹1,500/month\n\n" +
           "🧘‍♀️ We recommend bringing your own yoga mat and a bottle of water for comfort & convenience.",
 
-          other:
+          others:
           "💰 Fee Details at Shunyamudra Yoga & Wellness Center - Online Batch\n" +
           "Weekday Batch: 2000/month"
         };
