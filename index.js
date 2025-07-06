@@ -125,7 +125,9 @@ async function notifyTeam(phoneNumberId, session, enquiry, extraInfo = '') {
 async function handleMessage(phoneNumberId, from, msgBody) {
   resetTimeout(from);
   const msg = msgBody.toLowerCase().replace(/[?]/g, '').trim();
-  const isGreeting = ["hi", "hello", "hey", "namaste", "namasthe", "hi!"].includes(msg);
+  const greetingKeywords = ["hi", "hello", "hey", "namaste", "namasthe"];
+  const isGreeting = greetingKeywords.some(g => msg.startsWith(g));
+
 
   let session = sessions.get(from);
 
