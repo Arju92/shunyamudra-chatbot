@@ -236,15 +236,15 @@ async function handleMessage(phoneNumberId, from, msgBody) {
             "Morning Batch\nMonday, Tuesday, Thursday, Friday\n" +
             "6:30 AM - 7:30 AM\n8:00 AM - 9:00 AM\n\n" +
             "Evening Batch\n7:00 PM - 8:00 PM\n\n\n" +
-            "🧘‍♀️ *Meditation Batch*: \n\nMorning Batch\nSaturday only\n8:00 AM - 9:00 AM"
+            "🧘‍♀️ *Meditation Batch*: \n\nMorning Batch\nSaturday only\n8:00 AM - 9:00 AM",
+
+        other:
+            "🧘‍♀️ *Batch times for Online class*: \n" +
+            "Monday, Tuesday, Thursday, Friday\n" + 
+            "9:30 AM - 10:30 AM"
         };
         const cityKey = extractCityKey(session.userCity);
-
-        if (cityKey === "others") {
-          await sendMessage(phoneNumberId, from, "🙏 We're currently offering sessions only in Mumbai and Bangalore.");
-        } else {
-          await sendMessage(phoneNumberId, from, cityTimings[cityKey]);
-        }
+        await sendMessage(phoneNumberId, from, cityTimings[cityKey]);
 
         await checkToCollectDetails(phoneNumberId, from);
         session.step = 'post_answer_detail';
@@ -261,15 +261,14 @@ async function handleMessage(phoneNumberId, from, msgBody) {
           "💰 Fee Details at Shunyamudra Yoga & Wellness Center, Whitefield, Bangalore:\n\n" +
           "- Weekday Batch: ₹2,600/month (Exclusive discount for Gopalan Aqua Residents)\n" +
           "- Meditation Batch: ₹1,500/month\n\n" +
-          "🧘‍♀️ We recommend bringing your own yoga mat and a bottle of water for comfort & convenience."
+          "🧘‍♀️ We recommend bringing your own yoga mat and a bottle of water for comfort & convenience.",
+
+          other:
+          "💰 Fee Details at Shunyamudra Yoga & Wellness Center - Online Batch\n" +
+          "Weekday Batch: 2000/month"
         };
         const cityKey = extractCityKey(session.userCity);
-        
-        if (cityKey === "others") {
-          await sendMessage(phoneNumberId, from, "🙏 We're currently offering sessions only in Mumbai and Bangalore.");
-        } else {
-          await sendMessage(phoneNumberId, from, cityFees[cityKey]);
-        }
+        await sendMessage(phoneNumberId, from, cityFees[cityKey]);
 
         await checkToCollectDetails(phoneNumberId, from);
         session.step = 'post_answer_detail';
@@ -283,13 +282,13 @@ async function handleMessage(phoneNumberId, from, msgBody) {
         await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
       } else if (msg.includes("refer")) {
-        await sendMessage(phoneNumberId, from, "👥Thank You for your reference. Share your referral's name & number.");
+        await sendMessage(phoneNumberId, from, "👥Thank You for your reference. Please share your referral's name & number.");
         session.step = 'collect_user_referral';
       } else if (msg.includes("concern")) {
-        await sendMessage(phoneNumberId, from, "📝We are here for you. Please describe your concern below.");
+        await sendMessage(phoneNumberId, from, "📝We are here for you. Please describe your concerns below.");
         session.step = 'collect_user_concern';
       } else if (msg.includes("feedback")) {
-        await sendMessage(phoneNumberId, from, "🌟 We’d love your feedback! Please write down your review about us.");
+        await sendMessage(phoneNumberId, from, "🌟 We’d love your feedback! Please write down your review.");
         session.step = 'collect_user_feedback';
       } else {
         await sendSelectCity(phoneNumberId, from, session.userName);
