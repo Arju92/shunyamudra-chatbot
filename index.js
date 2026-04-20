@@ -88,18 +88,18 @@ function resetTimeout(phoneNumberId, from) {
   session.followUp1 = setTimeout(async () => {
     await sendMessage(phoneNumberId, from, "⏳ We didn't hear from you for a while. Would you like a demo?");
     await sendYesNoButtons(phoneNumberId, from);
-  }, 30 * 60 * 1000);
+  }, 12 * 60 * 60 * 1000);
 
   session.followUp2 = setTimeout(async () => {
     await sendMessage(phoneNumberId, from, "🙏 Just checking in again. Want to try a free demo class?");
     await sendYesNoButtons(phoneNumberId, from);
-  }, 60 * 60 * 1000);
+  }, 24 * 60 * 60 * 1000);
 
   session.finalTimeout = setTimeout(async () => {
     await sendMessage(phoneNumberId, from, 
       "⏳ Session timed out.\n\nYour wellness matters to us. Thanks for connecting with *Shunyamudra Yoga & Wellness Center*.\n\nType *Hi* to restart.");
     sessions.delete(from);
-  }, 65 * 60 * 1000);
+  }, 24 * 65 * 60 * 1000);
 
   sessions.set(from, session);
 }
