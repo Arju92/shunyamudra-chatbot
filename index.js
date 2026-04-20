@@ -37,10 +37,10 @@ app.post('/webhook', async (req, res) => {
       return res.sendStatus(400);
     }
 
-    const msgBody = message?.type === 'text'
+    let msgBody = message?.type === 'text'
       ? message.text.body.trim().toLowerCase()
       : message?.type === 'interactive'
-        ? message.interactive?.button_reply?.title || message.interactive?.list_reply?.title
+        ? (message.interactive?.button_reply?.title || message.interactive?.list_reply?.title || message.interactive?.list_reply?.id || '').toLowerCase()
         : null;
 
     if (message && msgBody) {
@@ -76,9 +76,9 @@ function extractUserDetails(msgBody) {
 
 function extractCityKey(userCity) {
   const lowerCity = userCity.toLowerCase();
-  if (lowerCity.includes("mumbai")) return "mumbai";
-  if (lowerCity.includes("bangalore")) return "bangalore";
-  if (lowerCity.includes("other")) return "others";
+  if (lowerCity.includes("mumbai") || lowerCity.includes("kharghar")) return "mumbai";
+  if (lowerCity.includes("bangalore") || lowerCity.includes("whitefield")) return "bangalore";
+  return "others";
 }
 
 function resetTimeout(phoneNumberId, from) {
@@ -111,8 +111,8 @@ function clearAllTimeouts(session) {
 function formatExtraInfo(text) {
   if (!text) return 'N/A';
   return text
-    .replace(/[\s\n\r\t]+/g, '_')  // replace all space-like characters with underscores
-    .replace(/_{5,}/g, '____')     // prevent excessive underscores (e.g., 10+ becomes 4)
+    .replace(/[\s\n\r\t]+/g, '_')
+    .replace(/_{5,}/g, '____')
     .trim();
 }
 
@@ -124,106 +124,98 @@ async function saveLead(phoneNumberId, session, enquiry, extraInfo = '') {
   await saveToGoogleSheets(session, enquiry, extraInfo);
 }
 
-// ==================== MESSAGE FLOW LOGIC ====================
+// ==================== IMPROVED FLOW (FIXED) ====================
 async function handleMessage(phoneNumberId, from, msgBody) {
-  resetTimeout(from);
+  resetTimeout(phoneNumberId, from);
   const msg = msgBody.toLowerCase().replace(/[?]/g, '').trim();
   const greetingKeywords = ["hi", "hello", "hey", "namaste", "namasthe"];
   const isGreeting = greetingKeywords.some(g => msg.startsWith(g));
 
-
   let session = sessions.get(from);
 
-  // ✅ If there's no session OR user sends greeting → reset session
+  // Reset session on greeting
   if (!session || isGreeting) {
-    if (session) clearAllTimeouts(session); // clear old timers
-    session = { step: 'welcome', phoneNumberId, from };
+    if (session) clearAllTimeouts(session);
+    session = { step: 'ask_city', phoneNumberId, from };
     sessions.set(from, session);
     resetTimeout(phoneNumberId, from);
   }
 
   switch (session.step) {
-    case 'welcome':
+    // STEP 1: Ask city first (zero friction)
+    case 'ask_city':
       if (isGreeting) {
-        await sendMessage(phoneNumberId, from, 
-          "🙏 Welcome! Please share your *Name* and *Email*.\n\nExample:\n*Name*: John Doe\n*Email*: john@example.com");
-        session.step = 'collect_initial_details';
+        await sendSelectCity(phoneNumberId, from);
+        session.step = 'collect_city';
       } else {
         await sendMessage(phoneNumberId, from, "👋 Type *Hi*, *Hello*, or *Namaste* to begin.");
       }
       break;
 
-    case 'collect_initial_details':
-    const { userName, userEmail } = extractUserDetails(msgBody);
-    if (userName && userEmail) {
-      Object.assign(session, { userName, userEmail, userPhoneNumber: from });
-      await sendMessage(phoneNumberId, from, `Thank you, *${userName}*!`);
-      await checkCustomerStatus(phoneNumberId, from);
-      session.step = 'check_status';
-    } else {
-      await sendMessage(phoneNumberId, from, 
-        "⚠️ Please provide *Name* and *Email* correctly.\n\nExample:\n*Name*: John Doe\n*Email*: john@example.com");
-    }
-    break;
-
-    case 'check_status':
-    if (msg.includes("new")) {
-      session.userStatus = 'new client';
-      await sendSelectCity(phoneNumberId, from);
-      session.step = 'select_city';
-    } else if (msg.includes("existing")) {
-      session.userStatus = 'existing client';
-      await sendSelectCity(phoneNumberId, from);
-      session.step = 'select_city';
-    } else {
-      await checkCustomerStatus(phoneNumberId, from);
-    }
-    break;
-
-    case 'select_city':
-      session.userCity = msg;
-      if (msg.includes("mumbai") || msg.includes("bangalore")) {
-        if (session.userStatus === 'new client') {
-          await sendClassMode(phoneNumberId, from);
-          await saveLead(phoneNumberId, session, "New Enquiry", "*Request*:Callback");
-          session.step = 'class_mode';
-        } else if (session.userStatus === 'existing client') {
-          await sendExistingWelcome(phoneNumberId, from);
-          session.step = 'main_menu';
-        }
-      } else if (msg.includes("other")) {
-        if (session.userStatus === 'new client') {
-          await sendMessage(phoneNumberId, from, 
-            "🧘‍♀️ We’re currently in Mumbai/Bangalore. Join our online batch:\n\n*Timings*: Mon/Tue/Thu/Fri, 9:30 AM - 10:30 AM");
-          await checkToCollectDetails(phoneNumberId, from);
-          await saveLead(phoneNumberId, session, "New Enquiry", "*Request*:Callback");
-          session.step = 'post_answer_detail';
-        } else if (session.userStatus === 'existing client') {
-          await sendExistingWelcome(phoneNumberId, from);
-          session.step = 'main_menu';
-        }
+    // STEP 2: Collect city
+    case 'collect_city':
+      if (msg.includes("mumbai") || msg.includes("kharghar") || msg.includes("bangalore") || msg.includes("whitefield") || msg.includes("other") || msg.includes("online")) {
+        session.userCity = msg;
+        await showTimingsAndFeePreview(phoneNumberId, from, msg);
+        await sendMessage(phoneNumberId, from, 
+          "🙏 To share the *exact fee*, *enrollment link*, and send you a *free 15-min guided relaxation audio*, please share:\n\n*Name*:\n*Email*:\n\nExample:\nName: John Doe\nEmail: john@example.com");
+        session.step = 'collect_initial_details';
       } else {
-        await sendMessage(phoneNumberId, from, "Please select a city.");
-        session.step = 'welcome';
+        await sendMessage(phoneNumberId, from, "Please select a city from the options.");
+        await sendSelectCity(phoneNumberId, from);
       }
       break;
 
+    // STEP 3: Collect name + email
+    case 'collect_initial_details':
+      const { userName, userEmail } = extractUserDetails(msgBody);
+      if (userName && userEmail) {
+        Object.assign(session, { userName, userEmail, userPhoneNumber: from });
+        await sendMessage(phoneNumberId, from, `Thank you, *${userName}!* 🧘‍♀️`);
+        await checkCustomerStatus(phoneNumberId, from);
+        session.step = 'check_status';
+      } else {
+        await sendMessage(phoneNumberId, from, 
+          "⚠️ Please provide *Name* and *Email* correctly.\n\nExample:\nName: John Doe\nEmail: john@example.com");
+      }
+      break;
+
+    // STEP 4: New or existing client
+    case 'check_status':
+      if (msg.includes("new")) {
+        session.userStatus = 'new client';
+        await saveLead(phoneNumberId, session, "New Lead", "City: " + session.userCity);
+        await sendClassMode(phoneNumberId, from);
+        session.step = 'class_mode';
+      } else if (msg.includes("existing")) {
+        session.userStatus = 'existing client';
+        await saveLead(phoneNumberId, session, "Existing Client", "Returning");
+        await sendExistingWelcome(phoneNumberId, from);
+        session.step = 'main_menu';
+      } else {
+        await checkCustomerStatus(phoneNumberId, from);
+      }
+      break;
+
+    // STEP 5: Class mode (studio or personal)
     case 'class_mode':
       if (msg.includes("studio")) {
         await sendNewWelcome(phoneNumberId, from);
         session.step = 'main_menu';
       } else if (msg.includes("personal")) {
         const className = "Personal Class Enquiry";
-        await sendMessage(phoneNumberId, from, "🙏Thank You! Our team will contact you shortly for personal sessions.\n\nTo restart the chat please send a Hi anytime.");
+        await sendMessage(phoneNumberId, from, "🙏 Thank you! Our team will contact you shortly for personal sessions.\n\nTo restart the chat please send a Hi anytime.");
         await notifyTeam(phoneNumberId, session, className, `*Request*:${className}`);
+        sessions.delete(from);
       } else {
         await sendMessage(phoneNumberId, from, "Please select a class mode.");
         await sendClassMode(phoneNumberId, from);
       }
       break;
 
+    // STEP 6: Main menu for new clients
     case 'main_menu':
-      if (msg.includes("class timings")) {
+      if (msg.includes("timing") || msg.includes("class timings") || msg.includes("class_timings")) {
         const cityTimings = {
           mumbai: 
             "🧘‍♀️ *Batch times at Kharghar, Navi Mumbai*: \n" +
@@ -234,69 +226,70 @@ async function handleMessage(phoneNumberId, from, msgBody) {
             "Evening Batch\n6:30 PM - 7:30 PM\n7:30 PM - 8:30 PM\n\n\n" +
             "🧘‍♀️ *Weekend Batch*: \n\nMorning Batch\nSaturday & Sunday\n7:00 AM - 8:15 AM\n\n\n" +
             "🧘‍♀️ *Aerial Yoga Batch*: \n\nMorning Batch\nSaturday & Sunday\n8:30 AM - 9:45 AM",
-
-        bangalore: 
+          bangalore: 
             "🧘‍♀️ *Batch times at Whitefield, Bangalore*: \n" +
             "🧘‍♀️ *Regular Weekday Batch*: \n\n" +
             "Morning Batch\nMonday, Tuesday, Thursday, Friday\n" +
             "6:30 AM - 7:30 AM\n8:00 AM - 9:00 AM\n\n" +
             "Evening Batch\n7:00 PM - 8:00 PM\n\n\n" +
             "🧘‍♀️ *Meditation Batch*: \n\nMorning Batch\nSaturday only\n8:00 AM - 9:00 AM",
-
-        others:
+          others:
             "🧘‍♀️ *Batch times for Online class*: \n" +
             "Monday, Tuesday, Thursday, Friday\n" + 
             "9:30 AM - 10:30 AM"
         };
         const cityKey = extractCityKey(session.userCity);
         await sendMessage(phoneNumberId, from, cityTimings[cityKey]);
-
         await checkToCollectDetails(phoneNumberId, from);
         session.step = 'post_answer_detail';
-      } else if (msg.includes("fee structure")) {
+      } 
+      else if (msg.includes("fee") || msg.includes("fee structure") || msg.includes("fee_structure")) {
         const cityFees = {
           mumbai: 
-          "💰 Fee Details at Shunyamudra Yoga & Wellness Center, Kharghar, Navi Mumbai:\n\n" +
-          "- Weekday Batch: ~₹3,000~ ₹2,500/month + ₹500 (one-time admission)\n" +
-          "- Weekend Batch: ₹2,000/month + ₹500 (one-time admission)\n" +
-          "- Aerial Yoga Batch: ₹3,200/month\n\n" +
-          "🧘‍♀️ We recommend bringing your own yoga mat and a bottle of water for comfort & convenience.",
-
+            "💰 Fee Details at Shunyamudra Yoga & Wellness Center, Kharghar, Navi Mumbai:\n\n" +
+            "- Weekday Batch: ~₹3,000~ ₹2,500/month + ₹500 (one-time admission)\n" +
+            "- Weekend Batch: ₹2,000/month + ₹500 (one-time admission)\n" +
+            "- Aerial Yoga Batch: ₹3,200/month\n\n" +
+            "🧘‍♀️ We recommend bringing your own yoga mat and a bottle of water for comfort & convenience.",
           bangalore: 
-          "💰 Fee Details at Shunyamudra Yoga & Wellness Center, Whitefield, Bangalore:\n\n" +
-          "- Weekday Batch: ₹2,600/month (Exclusive discount for Gopalan Aqua Residents)\n" +
-          "- Meditation Batch: ₹1,500/month\n\n" +
-          "🧘‍♀️ We recommend bringing your own yoga mat and a bottle of water for comfort & convenience.",
-
+            "💰 Fee Details at Shunyamudra Yoga & Wellness Center, Whitefield, Bangalore:\n\n" +
+            "- Weekday Batch: ₹2,600/month (Exclusive discount for Gopalan Aqua Residents)\n" +
+            "- Meditation Batch: ₹1,500/month\n\n" +
+            "🧘‍♀️ We recommend bringing your own yoga mat and a bottle of water for comfort & convenience.",
           others:
-          "💰 Fee Details at Shunyamudra Yoga & Wellness Center - Online Batch\n" +
-          "Weekday Batch: 2000/month"
+            "💰 Fee Details at Shunyamudra Yoga & Wellness Center - Online Batch\n" +
+            "Weekday Batch: 2000/month"
         };
         const cityKey = extractCityKey(session.userCity);
         await sendMessage(phoneNumberId, from, cityFees[cityKey]);
-
         await checkToCollectDetails(phoneNumberId, from);
         session.step = 'post_answer_detail';
-      } else if (msg.includes("join")) {
+      } 
+      else if (msg.includes("join") || msg.includes("how to join") || msg.includes("how_to_join")) {
         await sendMessage(phoneNumberId, from, "📝 Register here: https://shunyamudra.com/register");
         await checkToCollectDetails(phoneNumberId, from);
         session.step = 'post_answer_detail';
-      } else if (msg.includes("talk")) {
+      } 
+      else if (msg.includes("talk") || msg.includes("trainer") || msg.includes("talk_to_person")) {
         await sendMessage(phoneNumberId, from, "📞 Our trainer will call you shortly.");
         await notifyTeam(phoneNumberId, session, "Demo Enquiry", "*Request*:Callback");
         await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
-      } else if (msg.includes("refer")) {
-        await sendMessage(phoneNumberId, from, "👥Thank You for your reference. Please share your referral's name & number.");
+      } 
+      else if (msg.includes("refer")) {
+        await sendMessage(phoneNumberId, from, "👥 Thank you for your reference. Please share your referral's name & number.");
         session.step = 'collect_user_referral';
-      } else if (msg.includes("concern")) {
-        await sendMessage(phoneNumberId, from, "📝We are here for you. Please describe your concerns below.");
+      } 
+      else if (msg.includes("concern")) {
+        await sendMessage(phoneNumberId, from, "📝 We are here for you. Please describe your concerns below.");
         session.step = 'collect_user_concern';
-      } else if (msg.includes("feedback")) {
+      } 
+      else if (msg.includes("feedback")) {
         await sendMessage(phoneNumberId, from, "🌟 We’d love your feedback! Please write down your review.");
         session.step = 'collect_user_feedback';
-      } else {
-        await sendSelectCity(phoneNumberId, from, session.userName);
+      } 
+      else {
+        await sendNewWelcome(phoneNumberId, from);
       }
       break;
 
@@ -369,11 +362,32 @@ async function handleMessage(phoneNumberId, from, msgBody) {
       break;
 
     default:
-      await sendSelectCity(phoneNumberId, from, session.userName);
-      session.step = 'main_menu';
+      await sendSelectCity(phoneNumberId, from);
+      session.step = 'collect_city';
   }
 
   sessions.set(from, session);
+}
+
+// ==================== NEW HELPER: Show timings & fee preview ====================
+async function showTimingsAndFeePreview(phoneNumberId, to, city) {
+  let timingsText = "";
+  let feeText = "";
+  
+  if (city.includes("mumbai") || city.includes("kharghar")) {
+    timingsText = "⏰ *Mumbai (Kharghar)*: Weekday 6:45 AM - 7:45 AM, 7:45 AM - 8:45 AM, 8:45 AM - 9:45 AM, 10:30 AM - 11:30 AM | Evening 6:30 PM - 7:30 PM, 7:30 PM - 8:30 PM | Weekend 7:00 AM - 8:15 AM";
+    feeText = "💰 *Fee*: Weekday ₹2,500/month | Weekend ₹2,000/month | Aerial ₹3,200/month";
+  } 
+  else if (city.includes("bangalore") || city.includes("whitefield")) {
+    timingsText = "⏰ *Bangalore (Whitefield)*: Weekday 6:30 AM - 7:30 AM, 8:00 AM - 9:00 AM | Evening 7:00 PM - 8:00 PM | Meditation Saturday 8:00 AM - 9:00 AM";
+    feeText = "💰 *Fee*: Weekday ₹2,600/month | Meditation ₹1,500/month";
+  } 
+  else {
+    timingsText = "⏰ *Online*: Monday, Tuesday, Thursday, Friday 9:30 AM - 10:30 AM";
+    feeText = "💰 *Fee*: ₹2,000/month";
+  }
+  
+  await sendMessage(phoneNumberId, to, `🧘‍♀️ *Shunyamudra Yoga & Wellness Center*\n\n${timingsText}\n\n${feeText}\n\n✨ *Special offer*: Free 15-min guided relaxation audio when you share your details.`);
 }
 
 // ==================== WHATSAPP API HELPERS ====================
@@ -404,7 +418,6 @@ async function saveToGoogleSheets(session, enquiry, extraInfo) {
   }
 }
 
-
 async function sendMessage(phoneNumberId, to, text) {
   await sendWhatsAppMessage(phoneNumberId, { to, text: { body: text }, type: 'text' });
 }
@@ -414,7 +427,7 @@ async function sendTeamMessage(phoneNumberId, to, session, enquiry, extraInfo = 
     to,
     type: 'template',
     template: {
-      name: 'team_notify', // all lowercase, underscores instead of spaces
+      name: 'team_notify',
       language: { code: 'en_US' },
       components: [
         {
@@ -518,14 +531,14 @@ async function sendListMessage(phoneNumberId, to, bodyText, title, options) {
 }
 
 // ==================== MENUS ====================
-async function sendSelectCity(phoneNumberId, to, userName = '') {
+async function sendSelectCity(phoneNumberId, to) {
   await sendListMessage(phoneNumberId, to,
-    `🙏 Welcome${userName ? `, ${userName}` : ''}! Choose your city:`,
-    "City",
+    "🙏 Namaste 🙏 Welcome to Shunyamudra Yoga & Wellness.\nWe have classes in Bangalore and Mumbai.\n\nWhich city are you from?",
+    "Select your city",
     [
       { id: "mumbai", title: "Kharghar, Mumbai" },
       { id: "bangalore", title: "Whitefield, Bangalore" },
-      { id: "others", title: "Other Location" }
+      { id: "others", title: "Other Location (Online)" }
     ]
   );
 }
