@@ -117,7 +117,7 @@ function formatExtraInfo(text) {
 }
 
 async function notifyTeam(phoneNumberId, session, enquiry, extraInfo = '') {
-  console.log(phoneNumberId, WHATSAPP_NUMBER, session, enquiry, extraInfo);
+  await saveToGoogleSheets(session, enquiry, extraInfo);
   await sendTeamMessage(phoneNumberId, WHATSAPP_NUMBER, session, enquiry, extraInfo);
 }
 
@@ -378,6 +378,21 @@ async function sendWhatsAppMessage(phoneNumberId, payload) {
     );
   } catch (err) {
     console.error("❌ Failed to send message:", err.response?.data || err.message);
+  }
+}
+
+async function saveToGoogleSheets(session, enquiry, extraInfo) {
+  try {
+    await axios.post(process.env.GOOGLE_SHEET_WEBHOOK, {
+      name: session.userName,
+      phone: session.userPhoneNumber,
+      email: session.userEmail,
+      city: session.userCity,
+      enquiry,
+      extraInfo
+    });
+  } catch (err) {
+    console.error("❌ Google Sheets Error:", err.message);
   }
 }
 
