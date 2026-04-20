@@ -170,7 +170,6 @@ async function handleMessage(phoneNumberId, from, msgBody) {
     if (msg.includes("new")) {
       session.userStatus = 'new client';
       await sendSelectCity(phoneNumberId, from);
-      await saveLead(phoneNumberId, session, "New Enquiry", "*Request*:Callback");
       session.step = 'select_city';
     } else if (msg.includes("existing")) {
       session.userStatus = 'existing client';
@@ -186,6 +185,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
       if (msg.includes("mumbai") || msg.includes("bangalore")) {
         if (session.userStatus === 'new client') {
           await sendClassMode(phoneNumberId, from);
+          await saveLead(phoneNumberId, session, "New Enquiry", "*Request*:Callback");
           session.step = 'class_mode';
         } else if (session.userStatus === 'existing client') {
           await sendExistingWelcome(phoneNumberId, from);
@@ -196,6 +196,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
           await sendMessage(phoneNumberId, from, 
             "🧘‍♀️ We’re currently in Mumbai/Bangalore. Join our online batch:\n\n*Timings*: Mon/Tue/Thu/Fri, 9:30 AM - 10:30 AM");
           await checkToCollectDetails(phoneNumberId, from);
+          await saveLead(phoneNumberId, session, "New Enquiry", "*Request*:Callback");
           session.step = 'post_answer_detail';
         } else if (session.userStatus === 'existing client') {
           await sendExistingWelcome(phoneNumberId, from);
