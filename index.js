@@ -117,8 +117,11 @@ function formatExtraInfo(text) {
 }
 
 async function notifyTeam(phoneNumberId, session, enquiry, extraInfo = '') {
-  await saveToGoogleSheets(session, enquiry, extraInfo);
   await sendTeamMessage(phoneNumberId, WHATSAPP_NUMBER, session, enquiry, extraInfo);
+}
+
+async function saveLead(phoneNumberId, session, enquiry, extraInfo = '') {
+  await saveToGoogleSheets(session, enquiry, extraInfo);
 }
 
 // ==================== MESSAGE FLOW LOGIC ====================
@@ -156,7 +159,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
       Object.assign(session, { userName, userEmail, userPhoneNumber: from });
       await sendMessage(phoneNumberId, from, `Thank you, *${userName}*!`);
       await checkCustomerStatus(phoneNumberId, from);
-      session.step = 'check_status'; // Add this new step
+      session.step = 'check_status';
     } else {
       await sendMessage(phoneNumberId, from, 
         "⚠️ Please provide *Name* and *Email* correctly.\n\nExample:\n*Name*: John Doe\n*Email*: john@example.com");
@@ -167,6 +170,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
     if (msg.includes("new")) {
       session.userStatus = 'new client';
       await sendSelectCity(phoneNumberId, from);
+      await saveLead(phoneNumberId, session, "New Enquiry", "*Request*:Callback");
       session.step = 'select_city';
     } else if (msg.includes("existing")) {
       session.userStatus = 'existing client';
@@ -299,6 +303,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
       if (msg.trim()) {
         const formattedMsg = formatExtraInfo(msg);
         await notifyTeam(phoneNumberId, session, "Referral", `*Referral*: ${formattedMsg}`);
+        await saveLead(phoneNumberId, session, "Existing Client", `*Referral*: ${formattedMsg}`);
         await sendMessage(phoneNumberId, from, "🙏 Thank you! Our team will contact them soon.");
         await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
@@ -311,6 +316,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
       if (msg.trim()) {
         const formattedMsg = formatExtraInfo(msg);
         await notifyTeam(phoneNumberId, session, "Concern", `*Concern*: ${formattedMsg}`);
+        await saveLead(phoneNumberId, session, "Existing Client", `*Concern*: ${formattedMsg}`);
         await sendMessage(phoneNumberId, from, "🙏 We’ve noted your concern. Our team is working to resolve it. In the meantime, you can call us directly at 7777016109 (12 PM - 4 PM) for urgent queries.");
         await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
@@ -323,6 +329,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
       if (msg.trim()) {
         const formattedMsg = formatExtraInfo(msg);
         await notifyTeam(phoneNumberId, session, "Feedback", `*Feedback*: ${formattedMsg}`);
+        await saveLead(phoneNumberId, session, "Existing Client", `*Feedback*: ${formattedMsg}`);
         await sendMessage(phoneNumberId, from, "🌟 Thank you for your feedback! It means a lot to us and helps us grow stronger.");
         await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
