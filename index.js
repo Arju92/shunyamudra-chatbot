@@ -172,16 +172,16 @@ async function saveLead(phoneNumberId, session, enquiry, extraInfo = '') {
 
 // ==================== IMPROVED FLOW (FIXED) ====================
 async function handleMessage(phoneNumberId, from, msgBody) {
-  let session = sessions.get(from);
   const msg = msgBody.toLowerCase().replace(/[?]/g, '').trim();
-  // ❌ DO NOT reset timeout if user is in follow-up flow
-  if (!session || !session.step?.startsWith('followup_')) {
-    resetTimeout(phoneNumberId, from);
-  }
   const greetingKeywords = ["hi", "hello", "hey", "namaste", "namasthe"];
   const isGreeting = greetingKeywords.some(g => msg.startsWith(g));
 
   let session = sessions.get(from);
+
+  // ❌ DO NOT reset timeout if user is in follow-up flow
+  if (!session || !session.step?.startsWith('followup_')) {
+    resetTimeout(phoneNumberId, from);
+  }
 
   // Reset session on greeting
   if (!session || isGreeting) {
