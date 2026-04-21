@@ -231,7 +231,6 @@ async function handleMessage(phoneNumberId, from, msgBody) {
     case 'check_status':
       if (msg.includes("new")) {
         session.userStatus = 'new client';
-        await saveLead(phoneNumberId, session, "New Lead", "City: " + session.userCity);
         await sendClassMode(phoneNumberId, from);
         session.step = 'class_mode';
       } else if (msg.includes("existing")) {
@@ -251,7 +250,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
       } else if (msg.includes("personal")) {
         const className = "Personal Class Enquiry";
         await sendMessage(phoneNumberId, from, "🙏 Thank you! Our team will contact you shortly for personal sessions.\n\nTo restart the chat please send a Hi anytime.");
-        await saveLead(phoneNumberId, session, "New Client", "Personal Class Enquiry, Request: Callback");
+        await saveLead(phoneNumberId, session, "New Lead", "Personal Class Enquiry, Request: Callback");
         await notifyTeam(phoneNumberId, session, className, `*Request*:${className}`);
         sessions.delete(from);
       } else {
@@ -320,7 +319,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
       else if (msg.includes("talk") || msg.includes("trainer") || msg.includes("talk_to_person")) {
         await sendMessage(phoneNumberId, from, "📞 Our trainer will call you shortly.");
         await notifyTeam(phoneNumberId, session, "Class Enquiry", "*Request*:Callback");
-        await saveLead(phoneNumberId, session, "Class Enquiry", "*Request*:Callback");
+        await saveLead(phoneNumberId, session, "New Lead", "*Request*:Callback");
         await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
       } 
@@ -401,7 +400,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
       if (msg === 'yes') {
         await sendMessage(phoneNumberId, from, "📞 Our trainer will call you shortly.");
         await notifyTeam(phoneNumberId, session, "Demo Enquiry", "*Request*:Callback");
-        await saveLead(phoneNumberId, session, "Demo Enquiry", "*Request*:Callback");
+        await saveLead(phoneNumberId, session, "New Lead", "*Request*:Callback");
         await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
       } else {
