@@ -445,6 +445,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
 
         clearAllTimeouts(session);
         sessions.delete(from); 
+        return;
       } 
       else if (msg === 'no') {
 
@@ -482,7 +483,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
 
         clearAllTimeouts(session);
         sessions.delete(from); // Done, no more followups
-
+        return;
       } 
       else if (msg === 'no') {
 
