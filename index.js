@@ -610,9 +610,9 @@ async function giveCustomerOptions(phoneNumberId, to) {
       body: { text: "Would you like to" },
       action: {
         buttons: [
-          { type: 'reply', reply: { id: 'talk', title: 'Talk to our representative' } },
-          { type: 'reply', reply: { id: 'page', title: 'Go to Enrollment Page' } },
-          { type: 'reply', reply: { id: 'explore', title: 'Explore about classes' } }
+          { type: 'reply', reply: { id: 'talk', title: 'Talk to our team' } },
+          { type: 'reply', reply: { id: 'page', title: 'Enroll Now' } },
+          { type: 'reply', reply: { id: 'explore', title: 'Explore more' } }
         ]
       }
     }
