@@ -86,19 +86,54 @@ function resetTimeout(phoneNumberId, from) {
   if (session) {
     clearAllTimeouts(session);
   }
-
   session.lastInteractionTime = Date.now();
+
   session.followUp1 = setTimeout(async () => {
     if (!sessions.has(from)) return;
-    await sendMessage(phoneNumberId, from, "⏳ We didn't hear from you for a while.");
-    await sendYesNoFollowButtons(phoneNumberId, from);
-  }, 12 * 60 * 60 * 1000); // 12 hours
+    let session = sessions.get(from);
+    session.step = 'followup_check_booking';
+    sessions.set(from, session);
+
+    await sendWhatsAppMessage(phoneNumberId, {
+      to: from,
+      type: 'interactive',
+      interactive: {
+        type: 'button',
+        body: { text: "🙏 Have you booked the demo class?" },
+        action: {
+          buttons: [
+            { type: 'reply', reply: { id: 'yes', title: 'Yes' } },
+            { type: 'reply', reply: { id: 'no', title: 'No' } }
+          ]
+        }
+      }
+    });
+
+  }, 15 * 60 * 1000); // 12 hours
 
   session.followUp2 = setTimeout(async () => {
     if (!sessions.has(from)) return;
-    await sendMessage(phoneNumberId, from, "🙏 Just checking in again.");
-    await sendYesNoFollowButtons(phoneNumberId, from);
-  }, 24 * 60 * 60 * 1000); // 24 hours
+
+    let session = sessions.get(from);
+    session.step = 'followup_check_booking';
+    sessions.set(from, session);
+
+    await sendWhatsAppMessage(phoneNumberId, {
+      to: from,
+      type: 'interactive',
+      interactive: {
+        type: 'button',
+        body: { text: "🙏 Just checking again — have you booked the demo class?" },
+        action: {
+          buttons: [
+            { type: 'reply', reply: { id: 'yes', title: 'Yes' } },
+            { type: 'reply', reply: { id: 'no', title: 'No' } }
+          ]
+        }
+      }
+    });
+
+  }, 30 * 60 * 1000); // 24 hours
 
   session.finalTimeout = setTimeout(async () => {
     if (!sessions.has(from)) return;
@@ -106,7 +141,7 @@ function resetTimeout(phoneNumberId, from) {
       "⏳ Session timed out.\n\nYour wellness matters to us. Thanks for connecting with *Shunyamudra Yoga & Wellness Center*.\n\nType *Hi* to restart."
     );
     sessions.delete(from);
-  }, 24 * 65 * 60 * 1000); // 24 hours and five minutes
+  }, 35 * 60 * 1000); // 24 hours and five minutes
 
   sessions.set(from, session);
 }
@@ -375,6 +410,60 @@ async function handleMessage(phoneNumberId, from, msgBody) {
       }
       break;
 
+    case 'followup_check_booking':
+      if (msg === 'yes') {
+        await sendMessage(phoneNumberId, from, 
+          "🙏 Thank you! Glad you booked the demo. Our trainer will connect with you.");
+
+        sessions.delete(from); 
+      } 
+      else if (msg === 'no') {
+
+        session.step = 'followup_offer_demo';
+        sessions.set(from, session);
+
+        await sendWhatsAppMessage(phoneNumberId, {
+          to: from,
+          type: 'interactive',
+          interactive: {
+            type: 'button',
+            body: { text: "Would you like to book a demo class?" },
+            action: {
+              buttons: [
+                { type: 'reply', reply: { id: 'yes', title: 'Yes' } },
+                { type: 'reply', reply: { id: 'no', title: 'No' } }
+              ]
+            }
+          }
+        });
+
+      } else {
+        await sendMessage(phoneNumberId, from, "Please select Yes or No.");
+      }
+      break;
+    
+    case 'followup_offer_demo':
+      if (msg === 'yes') {
+
+        await sendMessage(phoneNumberId, from, 
+          "📞 Great! Our trainer will contact you shortly.");
+
+        await notifyTeam(phoneNumberId, session, "Follow-up Demo Enquiry", "*Request*: Callback");
+        await saveLead(phoneNumberId, session, "Follow-up Demo Enquiry", "*Request*: Callback");
+
+        sessions.delete(from); // Done, no more followups
+
+      } 
+      else if (msg === 'no') {
+
+        await sendMessage(phoneNumberId, from, 
+          "🙏 No worries! Feel free to reach out anytime.");
+
+      } else {
+        await sendMessage(phoneNumberId, from, "Please select Yes or No.");
+      }
+      break;
+
     default:
       await sendSelectCity(phoneNumberId, from);
       session.step = 'collect_city';
@@ -477,23 +566,6 @@ async function sendYesNoButtons(phoneNumberId, to) {
   });
 }
 
-async function sendYesNoFollowButtons(phoneNumberId, to) {
-  await sendWhatsAppMessage(phoneNumberId, {
-    to,
-    type: 'interactive',
-    interactive: {
-      type: 'button',
-      body: { text: "Would you like to book a Demo?" },
-      action: {
-        buttons: [
-          { type: 'reply', reply: { id: 'yes', title: 'Yes' } },
-          { type: 'reply', reply: { id: 'no', title: 'No' } }
-        ]
-      }
-    }
-  });
-}
-
 async function checkCustomerStatus(phoneNumberId, to) {
   await sendWhatsAppMessage(phoneNumberId, {
     to,
@@ -517,7 +589,7 @@ async function checkToCollectDetails(phoneNumberId, to) {
     type: 'interactive',
     interactive: {
       type: 'button',
-      body: { text: "Want to book a demo class?" },
+      body: { text: "Would you like to book a Demo class?" },
       action: {
         buttons: [
           { type: 'reply', reply: { id: 'yes', title: 'Yes' } },
