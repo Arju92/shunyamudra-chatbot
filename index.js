@@ -83,29 +83,40 @@ function extractCityKey(userCity) {
 
 function resetTimeout(phoneNumberId, from) {
   let session = sessions.get(from) || {};
-  if(session.finalTimeout) clearAllTimeouts(session.finalTimeout);
+  if (session) {
+    clearAllTimeouts(session);
+  }
 
+  session.lastInteractionTime = Date.now();
   session.followUp1 = setTimeout(async () => {
-    await sendMessage(phoneNumberId, from, "⏳ We didn't hear from you for a while. Would you like a demo?");
-    await sendYesNoButtons(phoneNumberId, from);
-  }, 12 * 60 * 60 * 1000);
+    if (!sessions.has(from)) return;
+    await sendMessage(phoneNumberId, from, "⏳ We didn't hear from you for a while.");
+    await sendYesNoFollowButtons(phoneNumberId, from);
+  }, 12 * 60 * 60 * 1000); // 12 hours
 
   session.followUp2 = setTimeout(async () => {
-    await sendMessage(phoneNumberId, from, "🙏 Just checking in again. Want to try a free demo class?");
-    await sendYesNoButtons(phoneNumberId, from);
-  }, 24 * 60 * 60 * 1000);
+    if (!sessions.has(from)) return;
+    await sendMessage(phoneNumberId, from, "🙏 Just checking in again.");
+    await sendYesNoFollowButtons(phoneNumberId, from);
+  }, 24 * 60 * 60 * 1000); // 24 hours
 
   session.finalTimeout = setTimeout(async () => {
-    await sendMessage(phoneNumberId, from, 
-      "⏳ Session timed out.\n\nYour wellness matters to us. Thanks for connecting with *Shunyamudra Yoga & Wellness Center*.\n\nType *Hi* to restart.");
+    if (!sessions.has(from)) return;
+    await sendMessage(phoneNumberId, from,
+      "⏳ Session timed out.\n\nYour wellness matters to us. Thanks for connecting with *Shunyamudra Yoga & Wellness Center*.\n\nType *Hi* to restart."
+    );
     sessions.delete(from);
-  }, 24 * 65 * 60 * 1000);
+  }, 24 * 65 * 60 * 1000); // 24 hours and five minutes
 
   sessions.set(from, session);
 }
 
 function clearAllTimeouts(session) {
-  ['timeout', 'followUp1', 'followUp2', 'finalTimeout'].forEach(t => clearTimeout(session[t]));
+  if (!session) return;
+
+  if (session.followUp1) clearTimeout(session.followUp1);
+  if (session.followUp2) clearTimeout(session.followUp2);
+  if (session.finalTimeout) clearTimeout(session.finalTimeout);
 }
 
 function formatExtraInfo(text) {
@@ -135,14 +146,15 @@ async function handleMessage(phoneNumberId, from, msgBody) {
 
   // Reset session on greeting
   if (!session || isGreeting) {
-    if (session) clearAllTimeouts(session);
+    if (session) {
+      clearAllTimeouts(session);
+      sessions.delete(from);
+    }
     session = { step: 'ask_city', phoneNumberId, from };
     sessions.set(from, session);
-    resetTimeout(phoneNumberId, from);
   }
 
   switch (session.step) {
-    // STEP 1: Ask city first (zero friction)
     case 'ask_city':
       if (isGreeting) {
         await sendSelectCity(phoneNumberId, from);
@@ -158,7 +170,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
         session.userCity = msg;
         await showTimingsAndFeePreview(phoneNumberId, from, msg);
         await sendMessage(phoneNumberId, from, 
-          "🙏 To share the *exact fee*, *enrollment link*, and send you a *free 15-min guided relaxation audio*, please share:\n\n*Name*:\n*Email*:\n\nExample:\nName: John Doe\nEmail: john@example.com");
+          "🙏 To share the *exact fee* and *enrollment link*, please share:\n\n*Name*:\n*Email*:\n\nExample:\nName: John Doe\nEmail: john@example.com");
         session.step = 'collect_initial_details';
       } else {
         await sendMessage(phoneNumberId, from, "Please select a city from the options.");
@@ -453,6 +465,23 @@ async function sendYesNoButtons(phoneNumberId, to) {
     interactive: {
       type: 'button',
       body: { text: "Do you have more questions?" },
+      action: {
+        buttons: [
+          { type: 'reply', reply: { id: 'yes', title: 'Yes' } },
+          { type: 'reply', reply: { id: 'no', title: 'No' } }
+        ]
+      }
+    }
+  });
+}
+
+async function sendYesNoFollowButtons(phoneNumberId, to) {
+  await sendWhatsAppMessage(phoneNumberId, {
+    to,
+    type: 'interactive',
+    interactive: {
+      type: 'button',
+      body: { text: "Would you like to book a Demo?" },
       action: {
         buttons: [
           { type: 'reply', reply: { id: 'yes', title: 'Yes' } },
