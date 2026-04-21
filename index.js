@@ -245,6 +245,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
     // STEP 5: Class mode (studio or personal)
     case 'class_mode':
       if (msg.includes("studio")) {
+        await saveLead(phoneNumberId, session, "New Lead", "Group Class Enquiry, Request: Callback");
         await sendNewWelcome(phoneNumberId, from);
         session.step = 'main_menu';
       } else if (msg.includes("personal")) {
@@ -414,6 +415,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
         await sendMessage(phoneNumberId, from, 
           "🙏 Thank you! Glad you booked the demo. Our trainer will connect with you.");
 
+        clearAllTimeouts(session);
         sessions.delete(from); 
       } 
       else if (msg === 'no') {
@@ -450,6 +452,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
         await notifyTeam(phoneNumberId, session, "Follow-up Demo Enquiry", "*Request*: Callback");
         await saveLead(phoneNumberId, session, "Follow-up Demo Enquiry", "*Request*: Callback");
 
+        clearAllTimeouts(session);
         sessions.delete(from); // Done, no more followups
 
       } 
