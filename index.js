@@ -416,9 +416,12 @@ async function handleMessage(phoneNumberId, from, msgBody) {
         if (session.userStatus === 'new client') {
           await sendNewWelcome(phoneNumberId, from);
           session.step = 'main_menu';
-        } else {
+        } else if (session.userStatus === 'existing client') {
           await sendExistingWelcome(phoneNumberId, from);
           session.step = 'main_menu';
+        } else{
+          await giveCustomerOptions(phoneNumberId, from);
+          session.step = 'customer_options';
         }
       } else if (msg === 'no') {
         await sendMessage(phoneNumberId, from, "🙏 Thank you for connecting with us! \n\nTo restart the chat please send a Hi anytime.");
