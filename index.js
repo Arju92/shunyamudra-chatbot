@@ -239,7 +239,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
         await saveLead(phoneNumberId, session, "New Lead", "*Request*:Callback");
         await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
-      } else if (msg.includes("page")) {
+      } else if (msg.includes("enroll")) {
         await sendMessage(phoneNumberId, from, "📝 Register here: https://shunyamudra.com/register");
         await saveLead(phoneNumberId, session, "New Lead", "Registration Link shared, *Request*:Callback");
         await checkToCollectDetails(phoneNumberId, from);
@@ -611,7 +611,7 @@ async function giveCustomerOptions(phoneNumberId, to) {
       action: {
         buttons: [
           { type: 'reply', reply: { id: 'talk', title: 'Talk to our team' } },
-          { type: 'reply', reply: { id: 'page', title: 'Enroll Now' } },
+          { type: 'reply', reply: { id: 'enroll', title: 'Enroll Now' } },
           { type: 'reply', reply: { id: 'explore', title: 'Explore more' } }
         ]
       }
