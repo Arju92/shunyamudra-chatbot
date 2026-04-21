@@ -205,7 +205,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
         session.userCity = msg;
         await showTimingsAndFeePreview(phoneNumberId, from, msg);
         await sendMessage(phoneNumberId, from, 
-          "🙏 To share the *exact fee* and *enrollment link*, please share:\n\n*Name*:\n*Email*:\n\nExample:\nName: John Doe\nEmail: john@example.com");
+          "🙏 To know the *current offers* and *enrollment link*, please share:\n\n*Name*:\n*Email*:\n\nExample:\nName: John Doe\nEmail: john@example.com");
         session.step = 'collect_initial_details';
       } else {
         await sendMessage(phoneNumberId, from, "Please select a city from the options.");
@@ -219,15 +219,38 @@ async function handleMessage(phoneNumberId, from, msgBody) {
       if (userName && userEmail) {
         Object.assign(session, { userName, userEmail, userPhoneNumber: from });
         await sendMessage(phoneNumberId, from, `Thank you, *${userName}!* 🧘‍♀️`);
-        await checkCustomerStatus(phoneNumberId, from);
-        session.step = 'check_status';
+        await giveCustomerOptions(phoneNumberId, from);
+        session.step = 'customer_options';
       } else {
         await sendMessage(phoneNumberId, from, 
-          "⚠️ Please provide *Name* and *Email* correctly.\n\nExample:\nName: John Doe\nEmail: john@example.com");
+          "⚠️ Please provide *Name* and *Email* correctly as two lines in the below given format.\n\nExample:\nName: John Doe\nEmail: john@example.com");
       }
       break;
 
-    // STEP 4: New or existing client
+    // STEP 4: customer options
+    case 'customer_options':
+      if (msg.includes("talk")) {
+        await sendMessage(phoneNumberId, from, "📞 Our trainer will call you shortly.");
+        await notifyTeam(phoneNumberId, session, "Class Enquiry", "*Request*:Callback");
+        await saveLead(phoneNumberId, session, "New Lead", "*Request*:Callback");
+        await sendYesNoButtons(phoneNumberId, from);
+        session.step = 'post_answer';
+      } else if (msg.includes("page")) {
+        await sendMessage(phoneNumberId, from, "📝 Register here: https://shunyamudra.com/register");
+        await saveLead(phoneNumberId, session, "New Lead", "Registration Link shared, *Request*:Callback");
+        await checkToCollectDetails(phoneNumberId, from);
+        session.step = 'post_answer_detail';
+      }else if (msg.includes("explore")) {
+        await checkCustomerStatus(phoneNumberId, from);
+        session.step = 'check_status';
+      }else {
+        await sendMessage(phoneNumberId, from, 
+          "⚠️ Please select a valid option.");
+        await giveCustomerOptions(phoneNumberId, from);
+      }
+      break;
+
+    // STEP 5: New or existing client
     case 'check_status':
       if (msg.includes("new")) {
         session.userStatus = 'new client';
@@ -242,7 +265,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
       }
       break;
 
-    // STEP 5: Class mode (studio or personal)
+    // STEP 6: Class mode (studio or personal)
     case 'class_mode':
       if (msg.includes("studio")) {
         await saveLead(phoneNumberId, session, "New Lead", "Group Class Enquiry, Request: Callback");
@@ -260,7 +283,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
       }
       break;
 
-    // STEP 6: Main menu for new clients
+    // STEP 7: Main menu for new clients
     case 'main_menu':
       if (msg.includes("timing") || msg.includes("class timings") || msg.includes("class_timings")) {
         const cityTimings = {
@@ -340,7 +363,8 @@ async function handleMessage(phoneNumberId, from, msgBody) {
         await sendNewWelcome(phoneNumberId, from);
       }
       break;
-
+    
+    // STEP 8: Collect Referral
     case 'collect_user_referral':
       if (msg.trim()) {
         const formattedMsg = formatExtraInfo(msg);
@@ -354,6 +378,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
       }
       break;
 
+    // STEP 9: Collect concerns
     case 'collect_user_concern':
       if (msg.trim()) {
         const formattedMsg = formatExtraInfo(msg);
@@ -367,6 +392,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
       }
       break;
 
+    // STEP 9: Collect feedback
     case 'collect_user_feedback':
       if (msg.trim()) {
         const formattedMsg = formatExtraInfo(msg);
@@ -380,6 +406,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
       }
       break;
 
+    // STEP 9: Further questions from Client
     case 'post_answer':
       if (msg === 'yes') {
         if (session.userStatus === 'new client') {
@@ -397,6 +424,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
       }
       break;
 
+    // STEP 10: Asking for Demo
     case 'post_answer_detail':
       if (msg === 'yes') {
         await sendMessage(phoneNumberId, from, "📞 Our trainer will call you shortly.");
@@ -562,6 +590,24 @@ async function sendYesNoButtons(phoneNumberId, to) {
         buttons: [
           { type: 'reply', reply: { id: 'yes', title: 'Yes' } },
           { type: 'reply', reply: { id: 'no', title: 'No' } }
+        ]
+      }
+    }
+  });
+}
+
+async function giveCustomerOptions(phoneNumberId, to) {
+  await sendWhatsAppMessage(phoneNumberId, {
+    to,
+    type: 'interactive',
+    interactive: {
+      type: 'button',
+      body: { text: "Would you like to" },
+      action: {
+        buttons: [
+          { type: 'reply', reply: { id: 'talk', title: 'Talk to our representative' } },
+          { type: 'reply', reply: { id: 'page', title: 'Go to Enrollment Page' } },
+          { type: 'reply', reply: { id: 'explore', title: 'Explore about classes' } }
         ]
       }
     }
