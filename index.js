@@ -201,7 +201,6 @@ async function handleMessage(phoneNumberId, from, msgBody) {
         session.step = 'class_mode';
       } else if (msg.includes("existing")) {
         session.userStatus = 'existing client';
-        await saveLead(phoneNumberId, session, "Existing Client", "Returning");
         await sendExistingWelcome(phoneNumberId, from);
         session.step = 'main_menu';
       } else {
@@ -217,6 +216,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
       } else if (msg.includes("personal")) {
         const className = "Personal Class Enquiry";
         await sendMessage(phoneNumberId, from, "🙏 Thank you! Our team will contact you shortly for personal sessions.\n\nTo restart the chat please send a Hi anytime.");
+        await saveLead(phoneNumberId, session, "New Client", "Personal Class Enquiry, Request: Callback");
         await notifyTeam(phoneNumberId, session, className, `*Request*:${className}`);
         sessions.delete(from);
       } else {
@@ -284,12 +284,13 @@ async function handleMessage(phoneNumberId, from, msgBody) {
       } 
       else if (msg.includes("talk") || msg.includes("trainer") || msg.includes("talk_to_person")) {
         await sendMessage(phoneNumberId, from, "📞 Our trainer will call you shortly.");
-        await notifyTeam(phoneNumberId, session, "Demo Enquiry", "*Request*:Callback");
+        await notifyTeam(phoneNumberId, session, "Class Enquiry", "*Request*:Callback");
+        await saveLead(phoneNumberId, session, "Class Enquiry", "*Request*:Callback");
         await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
       } 
       else if (msg.includes("refer")) {
-        await sendMessage(phoneNumberId, from, "👥 Thank you for your reference. Please share your referral's name & number.");
+        await sendMessage(phoneNumberId, from, "👥 Thank you for your reference. Please share the name & phone number of the person you would like to refer.");
         session.step = 'collect_user_referral';
       } 
       else if (msg.includes("concern")) {
@@ -297,7 +298,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
         session.step = 'collect_user_concern';
       } 
       else if (msg.includes("feedback")) {
-        await sendMessage(phoneNumberId, from, "🌟 We’d love your feedback! Please write down your review.");
+        await sendMessage(phoneNumberId, from, "🌟 We’d love your feedback! Please write down your feedback.");
         session.step = 'collect_user_feedback';
       } 
       else {
@@ -365,6 +366,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
       if (msg === 'yes') {
         await sendMessage(phoneNumberId, from, "📞 Our trainer will call you shortly.");
         await notifyTeam(phoneNumberId, session, "Demo Enquiry", "*Request*:Callback");
+        await saveLead(phoneNumberId, session, "Demo Enquiry", "*Request*:Callback");
         await sendYesNoButtons(phoneNumberId, from);
         session.step = 'post_answer';
       } else {
@@ -387,19 +389,19 @@ async function showTimingsAndFeePreview(phoneNumberId, to, city) {
   let feeText = "";
   
   if (city.includes("mumbai") || city.includes("kharghar")) {
-    timingsText = "⏰ *Mumbai (Kharghar)*: Weekday 6:45 AM - 7:45 AM, 7:45 AM - 8:45 AM, 8:45 AM - 9:45 AM, 10:30 AM - 11:30 AM | Evening 6:30 PM - 7:30 PM, 7:30 PM - 8:30 PM | Weekend 7:00 AM - 8:15 AM";
-    feeText = "💰 *Fee*: Weekday ₹2,500/month | Weekend ₹2,000/month | Aerial ₹3,200/month";
+    timingsText = "⏰ *Mumbai (Kharghar)*: \nWeekday Morning 6:45 AM - 11:30 AM \nEvening 6:30 PM - 8:30 PM \nWeekend 7:00 AM - 8:15 AM";
+    feeText = "💰 *Fee*: \nWeekday ₹2,500/month \nWeekend ₹2,000/month \nAerial ₹3,200/month";
   } 
   else if (city.includes("bangalore") || city.includes("whitefield")) {
-    timingsText = "⏰ *Bangalore (Whitefield)*: Weekday 6:30 AM - 7:30 AM, 8:00 AM - 9:00 AM | Evening 7:00 PM - 8:00 PM | Meditation Saturday 8:00 AM - 9:00 AM";
-    feeText = "💰 *Fee*: Weekday ₹2,600/month | Meditation ₹1,500/month";
+    timingsText = "⏰ *Bangalore (Whitefield)*: \nWeekday Morning 6:30 AM - 9:00 AM \nEvening 7:00 PM - 8:00 PM \nMeditation Saturday 8:00 AM - 9:00 AM";
+    feeText = "💰 *Fee*: \nWeekday ₹2,600/month \nMeditation ₹1,500/month";
   } 
   else {
-    timingsText = "⏰ *Online*: Monday, Tuesday, Thursday, Friday 9:30 AM - 10:30 AM";
+    timingsText = "⏰ *Online*: 9:30 AM - 10:30 AM";
     feeText = "💰 *Fee*: ₹2,000/month";
   }
   
-  await sendMessage(phoneNumberId, to, `🧘‍♀️ *Shunyamudra Yoga & Wellness Center*\n\n${timingsText}\n\n${feeText}\n\n✨ *Special offer*: Free 15-min guided relaxation audio when you share your details.`);
+  await sendMessage(phoneNumberId, to, `🧘‍♀️ *Shunyamudra Yoga & Wellness Center*\n\n${timingsText}\n\n${feeText}\n\n✨ *Special offer*: Free Yoga mat if registered through Chatbot.`);
 }
 
 // ==================== WHATSAPP API HELPERS ====================
