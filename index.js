@@ -178,8 +178,14 @@ async function handleMessage(phoneNumberId, from, msgBody) {
 
   let session = sessions.get(from);
 
-  // ❌ DO NOT reset timeout if user is in follow-up flow
-  if (!session && !session.step?.startsWith('followup_')) {
+  // Always ensure session + step exist
+  if (!session || !session.step) {
+    session = { step: 'ask_city', phoneNumberId, from };
+    sessions.set(from, session);
+  }
+
+  // Reset timeout only if not follow-up
+  if (!session.step.startsWith('followup_')) {
     resetTimeout(phoneNumberId, from);
   }
 
