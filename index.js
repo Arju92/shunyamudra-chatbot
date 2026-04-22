@@ -179,7 +179,7 @@ async function handleMessage(phoneNumberId, from, msgBody) {
   let session = sessions.get(from);
 
   // ❌ DO NOT reset timeout if user is in follow-up flow
-  if (!session || !session.step?.startsWith('followup_')) {
+  if (!session && !session.step?.startsWith('followup_')) {
     resetTimeout(phoneNumberId, from);
   }
 
